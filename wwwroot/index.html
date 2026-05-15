@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal Multitenant de Pago de Servicios</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body>
+    <!-- BARRA DE NAVEGACIÓN -->
+    <nav class="navbar navbar-dark navbar-expand-lg bg-dark sticky-top" id="navbar">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-building"></i> Portal de Pagos
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <span class="nav-link" id="usuarioActual"></span>
+                    </li>
+                    <li class="nav-item">
+                        <button class="btn btn-danger btn-sm" id="btnCerrarSesion" onclick="cerrarSesion()">
+                            <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
+                        </button>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- CONTENEDOR PRINCIPAL -->
+    <div class="container-fluid" id="mainContainer">
+        
+        <!-- PANTALLA DE LOGIN -->
+        <div id="loginScreen" class="pantalla">
+            <div class="login-container">
+                <div class="login-box">
+                    <div class="text-center mb-4">
+                        <h1 class="mb-2">
+                            <i class="fas fa-lock text-primary"></i> Portal de Pagos
+                        </h1>
+                        <p class="text-muted">Ingrese sus credenciales para acceder al sistema</p>
+                    </div>
+
+                    <form onsubmit="iniciarSesion(event)" id="loginForm">
+                        <div class="mb-3">
+                            <label for="idUsuario" class="form-label">
+                                <i class="fas fa-id-card"></i> ID de Usuario
+                            </label>
+                            <input type="number" class="form-control form-control-lg" id="idUsuario" 
+                                   placeholder="Ej: 1" required min="1">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="pinUsuario" class="form-label">
+                                <i class="fas fa-key"></i> PIN
+                            </label>
+                            <input type="password" class="form-control form-control-lg" id="pinUsuario" 
+                                   placeholder="Ingrese su PIN" required>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-lg w-100 mb-3">
+                            <i class="fas fa-sign-in-alt"></i> Ingresar
+                        </button>
+                    </form>
+
+                    <div class="alert alert-info alert-sm">
+                        <small>
+                            <strong>Datos de prueba:</strong><br>
+                            ID: 1, PIN: 1234 (Cliente)<br>
+                            ID: 6, PIN: 2468 (Cajero)<br>
+                            ID: 7, PIN: 1357 (Admin)
+                        </small>
+                    </div>
+
+                    <div id="mensajeError" class="alert alert-danger d-none mt-3"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PANEL DE CLIENTE -->
+        <div id="panelCliente" class="pantalla d-none">
+            <div class="row mt-4">
+                <!-- TARJETA DE INFORMACIÓN DEL USUARIO -->
+                <div class="col-lg-4 mb-4">
+                    <div class="card h-100 card-info">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="fas fa-user-circle"></i> Mi Información
+                            </h5>
+                            <hr>
+                            <p class="card-text">
+                                <strong>Nombre:</strong> <span id="clienteNombre"></span>
+                            </p>
+                            <p class="card-text">
+                                <strong>ID:</strong> <span id="clienteId"></span>
+                            </p>
+                            <hr>
+                            <h6 class="mb-3">Saldo Disponible</h6>
+                            <div class="saldo-display">
+                                Q<span id="saldoActual" class="display-5">0.00</span>
+                            </div>
+                            <button class="btn btn-danger w-100 mt-3" onclick="abrirModalRetiroCliente()">
+                                <i class="fas fa-money-bill"></i> Retirar Dinero
+                            </button>
+                            <div id="alertaRetiroCliente" class="alert mt-3 d-none"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TABLA DE CUOTAS PENDIENTES -->
+                <div class="col-lg-8 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">
+                                <i class="fas fa-credit-card"></i> Cuotas Pendientes
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="tablaCuotas" class="table-responsive">
+                                <!-- Se llenará con JavaScript -->
+                            </div>
+                            <div id="sinCuotas" class="alert alert-success d-none">
+                                <i class="fas fa-check-circle"></i> No tiene cuotas pendientes. ¡Excelente!
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mt-4">
+                <!-- HISTORIAL DE PAGOS -->
+                <div class="col-lg-12">
+                    <div class="card">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="mb-0">
+                                <i class="fas fa-history"></i> Historial de Cuotas (Pagadas y Pendientes)
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="historialCuotas" class="table-responsive">
+                                <!-- Se llenará con JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PANEL DE CAJERO -->
+        <div id="panelCajero" class="pantalla d-none">
+            <div class="row mt-4">
+                <!-- BUSCAR USUARIO -->
+                <div class="col-lg-6 mb-4">
+                    <div class="card">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0">
+                                <i class="fas fa-search"></i> Buscar Usuario
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label for="idUsuarioBusqueda" class="form-label">
+                                    <i class="fas fa-id-card"></i> ID del Usuario
+                                </label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="idUsuarioBusqueda" 
+                                           placeholder="Ingrese el ID" min="1">
+                                    <button class="btn btn-success" type="button" onclick="buscarUsuarioCajero()">
+                                        <i class="fas fa-search"></i> Buscar
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div id="infoUsuarioBusqueda" class="d-none">
+                                <hr>
+                                <h6>Información del Usuario</h6>
+                                <p><strong>Nombre:</strong> <span id="usuarioBusquedaNombre"></span></p>
+                                <p><strong>ID Cuenta:</strong> <span id="idCuentaBancaria"></span></p>
+                                <p><strong>Saldo Actual:</strong> Q<span id="saldoCuentaBancaria">0.00</span></p>
+                            </div>
+
+                            <div id="errorBusqueda" class="alert alert-danger d-none mt-3"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- REALIZAR DEPÓSITO -->
+                <div class="col-lg-6 mb-4">
+                    <div class="card">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0">
+                                <i class="fas fa-money-bill-wave"></i> Realizar Depósito
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <form onsubmit="realizarDeposito(event)" id="formDeposito">
+                                <div class="mb-3">
+                                    <label for="montoDeposito" class="form-label">
+                                        <i class="fas fa-coins"></i> Monto a Depositar (Q)
+                                    </label>
+                                    <input type="number" class="form-control form-control-lg" id="montoDeposito" 
+                                           placeholder="Ej: 500" step="0.01" min="0.01" required disabled>
+                                </div>
+
+                                <button type="submit" class="btn btn-success btn-lg w-100" id="btnDepositar" disabled>
+                                    <i class="fas fa-plus-circle"></i> Depositar Dinero
+                                </button>
+                            </form>
+
+                            <button class="btn btn-danger btn-lg w-100 mt-2" id="btnRetiroCajero" 
+                                    onclick="abrirModalRetiroCajero()" disabled>
+                                <i class="fas fa-money-bill"></i> Retirar Dinero
+                            </button>
+
+                            <div id="mensajeDeposito" class="alert mt-3 d-none"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PANEL DE ADMIN DE SERVICIOS -->
+        <div id="panelAdmin" class="pantalla d-none">
+            <div class="row mt-4">
+                <!-- CREAR NUEVA CUOTA -->
+                <div class="col-lg-6 mb-4">
+                    <div class="card">
+                        <div class="card-header bg-warning text-dark">
+                            <h5 class="mb-0">
+                                <i class="fas fa-plus-circle"></i> Crear Nueva Cuota
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <form onsubmit="crearNuevaCuota(event)" id="formCrearCuota">
+                                <div class="mb-3">
+                                    <label for="idUsuarioAdmin" class="form-label">
+                                        <i class="fas fa-id-card"></i> ID del Usuario
+                                    </label>
+                                    <input type="number" class="form-control" id="idUsuarioAdmin" 
+                                           placeholder="Ej: 1" min="1" required>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="idEmpresaAdmin" class="form-label">
+                                        <i class="fas fa-building"></i> Empresa
+                                    </label>
+                                    <select class="form-control" id="idEmpresaAdmin" required>
+                                        <option value="">Seleccione una empresa</option>
+                                        <!-- Se llenará con JavaScript -->
+                                    </select>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="mesAdmin" class="form-label">
+                                        <i class="fas fa-calendar"></i> Mes (YYYY-MM)
+                                    </label>
+                                    <input type="text" class="form-control" id="mesAdmin" 
+                                           placeholder="Ej: 2024-12" pattern="\d{4}-\d{2}" required>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="montoAdmin" class="form-label">
+                                        <i class="fas fa-money-bill"></i> Monto (Q)
+                                    </label>
+                                    <input type="number" class="form-control" id="montoAdmin" 
+                                           placeholder="Ej: 150" step="0.01" min="0.01" required>
+                                </div>
+
+                                <button type="submit" class="btn btn-warning btn-lg w-100">
+                                    <i class="fas fa-save"></i> Crear Cuota
+                                </button>
+                            </form>
+
+                            <div id="mensajeCreacionCuota" class="alert mt-3 d-none"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RESUMEN DE EMPRESAS -->
+                <div class="col-lg-6 mb-4">
+                    <div class="card">
+                        <div class="card-header bg-warning text-dark">
+                            <h5 class="mb-0">
+                                <i class="fas fa-chart-pie"></i> Resumen de Empresas
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="resumenEmpresas">
+                                <!-- Se llenará con JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mt-4">
+                <!-- LISTADO DE CUOTAS DEL SISTEMA -->
+                <div class="col-lg-12">
+                    <div class="card">
+                        <div class="card-header bg-warning text-dark">
+                            <h5 class="mb-0">
+                                <i class="fas fa-list"></i> Todas las Cuotas del Sistema
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="todasLasCuotas" class="table-responsive">
+                                <!-- Se llenará con JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- MODAL PARA CONFIRMAR PAGO -->
+    <div class="modal fade" id="modalConfirmarPago" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-credit-card"></i> Confirmar Pago
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p><strong>Empresa:</strong> <span id="detalleEmpresa"></span></p>
+                    <p><strong>Mes:</strong> <span id="detalleMes"></span></p>
+                    <p><strong>Monto:</strong> Q<span id="detalleMonto">0.00</span></p>
+                    <hr>
+                    <p class="text-muted">¿Desea proceder con el pago de esta cuota?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="btnConfirmarPago" 
+                            onclick="confirmarPago()">
+                        <i class="fas fa-check"></i> Confirmar Pago
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL PARA RESULTADO DE PAGO -->
+    <div class="modal fade" id="modalResultadoPago" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" id="modalContenido">
+                <!-- Se llenará con JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL PARA RETIRO DE CLIENTE -->
+    <div class="modal fade" id="modalRetiroCliente" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-money-bill"></i> Retirar Dinero
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form onsubmit="confirmarRetiroCliente(event)" id="formRetiroCliente">
+                        <div class="mb-3">
+                            <label for="montoRetiroCliente" class="form-label">
+                                <i class="fas fa-coins"></i> Monto a Retirar (Q)
+                            </label>
+                            <input type="number" class="form-control form-control-lg" id="montoRetiroCliente" 
+                                   placeholder="Ej: 100" step="0.01" min="0.01" required>
+                        </div>
+                        <p class="text-muted">Ingrese el monto que desea retirar de su cuenta.</p>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-danger" onclick="confirmarRetiroCliente()">
+                        <i class="fas fa-check"></i> Confirmar Retiro
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL PARA RETIRO DE CAJERO -->
+    <div class="modal fade" id="modalRetiroCajero" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-money-bill"></i> Retirar Dinero
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form onsubmit="confirmarRetiroCajero(event)" id="formRetiroCajero">
+                        <div class="mb-3">
+                            <label for="montoRetiroCajero" class="form-label">
+                                <i class="fas fa-coins"></i> Monto a Retirar (Q)
+                            </label>
+                            <input type="number" class="form-control form-control-lg" id="montoRetiroCajero" 
+                                   placeholder="Ej: 100" step="0.01" min="0.01" required>
+                        </div>
+                        <p class="text-muted">Ingrese el monto a retirar de la cuenta del cliente.</p>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-danger" onclick="confirmarRetiroCajero()">
+                        <i class="fas fa-check"></i> Confirmar Retiro
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barra de navegación oculta inicialmente -->
+    <script>
+        document.getElementById('navbar').style.display = 'none';
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
