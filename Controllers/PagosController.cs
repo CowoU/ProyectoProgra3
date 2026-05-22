@@ -68,6 +68,68 @@ namespace ProyectoProgra3.Controllers
         }
 
         /// <summary>
+        /// Endpoint para PAGAR UNA CUOTA Y LIQUIDAR ANTERIORES VENCIDAS (aplicando mora)
+        /// </summary>
+        [HttpPost("pagar-cuota-con-mora")]
+        public IActionResult PagarCuotaConMora([FromBody] PagarCuotaRequest request)
+        {
+            if (request == null || request.IdUsuario <= 0 || request.IdCuota <= 0)
+            {
+                return BadRequest(new { exitoso = false, mensaje = "IdUsuario e IdCuota son requeridos" });
+            }
+
+            var resultado = _pagoService.ProcesarPagoCuotaConMora(request.IdUsuario, request.IdCuota);
+
+            if (resultado.Exitoso)
+            {
+                return Ok(new
+                {
+                    exitoso = true,
+                    mensaje = resultado.Mensaje,
+                    detalles = new
+                    {
+                        montoOriginal = resultado.MontoOriginal,
+                        montoParaEmpresa = resultado.MontoParaEmpresa,
+                        comisionBanco = resultado.ComisionBanco,
+                        saldoRestante = resultado.SaldoRestante,
+                        empresa = resultado.Empresa,
+                        fechaPago = resultado.FechaPago
+                    }
+                });
+            }
+
+            return BadRequest(new { exitoso = false, mensaje = resultado.Mensaje });
+        }
+
+        /// <summary>
+        /// Endpoint para CALCULAR LA MORA DE UNA CUOTA
+        /// Retorna el monto de mora acumulada sin realizar el pago
+        /// </summary>
+        [HttpGet("calcular-mora/{idCuota}")]
+        public IActionResult CalcularMora(int idCuota)
+        {
+            var cuota = _pagoService.ObtenerCuota(idCuota);
+            if (cuota == null)
+            {
+                return BadRequest(new { exitoso = false, mensaje = "Cuota no encontrada" });
+            }
+
+            var mora = _pagoService.CalcularMora(cuota, DateTime.Now);
+            var total = cuota.Monto + mora;
+
+            return Ok(new
+            {
+                exitoso = true,
+                idCuota = cuota.Id,
+                montoOriginal = cuota.Monto,
+                mora = mora,
+                total = total,
+                estado = cuota.Estado,
+                fechaVencimiento = cuota.FechaVencimiento?.ToString("yyyy-MM-dd")
+            });
+        }
+
+        /// <summary>
         /// Endpoint para OBTENER CUOTAS PENDIENTES DE UN USUARIO
         /// </summary>
         /// <param name="idUsuario">ID del usuario</param>
@@ -103,6 +165,7 @@ namespace ProyectoProgra3.Controllers
                 cuotasPendientes = cuotas.Select(c => new
                 {
                     id = c.Id,
+                    idEmpresa = c.IdEmpresa,
                     mes = c.Mes,
                     monto = c.Monto,
                     estado = c.Estado
@@ -145,6 +208,7 @@ namespace ProyectoProgra3.Controllers
                 cuotas = cuotas.Select(c => new
                 {
                     id = c.Id,
+                    idEmpresa = c.IdEmpresa,
                     mes = c.Mes,
                     monto = c.Monto,
                     estado = c.Estado

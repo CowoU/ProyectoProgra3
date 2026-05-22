@@ -67,6 +67,10 @@
                         <button type="submit" class="btn btn-primary btn-lg w-100 mb-3">
                             <i class="fas fa-sign-in-alt"></i> Ingresar
                         </button>
+
+                        <button type="button" class="btn btn-link w-100 mb-3" onclick="abrirModalRecuperarPin()">
+                            <i class="fas fa-redo"></i> ¿Olvidaste tu PIN? Solicitar recuperación
+                        </button>
                     </form>
 
                     <div class="alert alert-info alert-sm">
@@ -227,90 +231,256 @@
 
         <!-- PANEL DE ADMIN DE SERVICIOS -->
         <div id="panelAdmin" class="pantalla d-none">
-            <div class="row mt-4">
-                <!-- CREAR NUEVA CUOTA -->
-                <div class="col-lg-6 mb-4">
-                    <div class="card">
-                        <div class="card-header bg-warning text-dark">
-                            <h5 class="mb-0">
-                                <i class="fas fa-plus-circle"></i> Crear Nueva Cuota
-                            </h5>
+            <!-- MENÚ DE TABS SUPERIOR -->
+            <div class="alert alert-dark mt-3 mb-0">
+                <div class="btn-group w-100" role="tablist">
+                    <button class="btn btn-outline-primary active" id="tabPrincipal" data-bs-toggle="tab" data-bs-target="#contentPrincipal" onclick="mostrarTabAdmin('principal')">
+                        <i class="fas fa-home"></i> Panel Principal
+                    </button>
+                    <button class="btn btn-outline-success" id="tabCrearUsuario" data-bs-toggle="tab" data-bs-target="#contentCrearUsuario" onclick="mostrarTabAdmin('crear')">
+                        <i class="fas fa-user-plus"></i> Crear Usuario
+                    </button>
+                    <button class="btn btn-outline-info" id="tabListaUsuarios" data-bs-toggle="tab" data-bs-target="#contentListaUsuarios" onclick="mostrarTabAdmin('usuarios')">
+                        <i class="fas fa-users"></i> Lista de Usuarios
+                    </button>
+                </div>
+            </div>
+
+            <div class="tab-content mt-4">
+                <!-- TAB: PANEL PRINCIPAL -->
+                <div class="tab-pane fade show active" id="contentPrincipal">
+                    <div class="row">
+                        <!-- CREAR NUEVA CUOTA -->
+                        <div class="col-lg-6 mb-4">
+                            <div class="card">
+                                <div class="card-header bg-warning text-dark">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-plus-circle"></i> Crear Nueva Cuota
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <form onsubmit="crearNuevaCuota(event)" id="formCrearCuota">
+                                        <div class="mb-3">
+                                            <label for="idUsuarioAdmin" class="form-label">
+                                                <i class="fas fa-id-card"></i> ID del Usuario
+                                            </label>
+                                            <input type="number" class="form-control" id="idUsuarioAdmin" 
+                                                   placeholder="Ej: 1" min="1" required>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="idEmpresaAdmin" class="form-label">
+                                                <i class="fas fa-building"></i> Empresa
+                                            </label>
+                                            <select class="form-control" id="idEmpresaAdmin" required>
+                                                <option value="">Seleccione una empresa</option>
+                                                <!-- Se llenará con JavaScript -->
+                                            </select>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="mesAdmin" class="form-label">
+                                                <i class="fas fa-calendar"></i> Mes (YYYY-MM)
+                                            </label>
+                                            <input type="text" class="form-control" id="mesAdmin" 
+                                                   placeholder="Ej: 2024-12" pattern="\d{4}-\d{2}" required>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="montoAdmin" class="form-label">
+                                                <i class="fas fa-money-bill"></i> Monto (Q)
+                                            </label>
+                                            <input type="number" class="form-control" id="montoAdmin" 
+                                                   placeholder="Ej: 150" step="0.01" min="0.01" required>
+                                        </div>
+
+                                        <button type="submit" class="btn btn-warning btn-lg w-100">
+                                            <i class="fas fa-save"></i> Crear Cuota
+                                        </button>
+                                    </form>
+
+                                    <div id="mensajeCreacionCuota" class="alert mt-3 d-none"></div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="card-body">
-                            <form onsubmit="crearNuevaCuota(event)" id="formCrearCuota">
-                                <div class="mb-3">
-                                    <label for="idUsuarioAdmin" class="form-label">
-                                        <i class="fas fa-id-card"></i> ID del Usuario
-                                    </label>
-                                    <input type="number" class="form-control" id="idUsuarioAdmin" 
-                                           placeholder="Ej: 1" min="1" required>
-                                </div>
 
-                                <div class="mb-3">
-                                    <label for="idEmpresaAdmin" class="form-label">
-                                        <i class="fas fa-building"></i> Empresa
-                                    </label>
-                                    <select class="form-control" id="idEmpresaAdmin" required>
-                                        <option value="">Seleccione una empresa</option>
+                        <!-- RESUMEN DE EMPRESAS -->
+                        <div class="col-lg-6 mb-4">
+                            <div class="card">
+                                <div class="card-header bg-info text-white">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-chart-pie"></i> Resumen de Empresas
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <div id="resumenEmpresas">
                                         <!-- Se llenará con JavaScript -->
-                                    </select>
+                                    </div>
                                 </div>
-
-                                <div class="mb-3">
-                                    <label for="mesAdmin" class="form-label">
-                                        <i class="fas fa-calendar"></i> Mes (YYYY-MM)
-                                    </label>
-                                    <input type="text" class="form-control" id="mesAdmin" 
-                                           placeholder="Ej: 2024-12" pattern="\d{4}-\d{2}" required>
-                                </div>
-
-                                <div class="mb-3">
-                                    <label for="montoAdmin" class="form-label">
-                                        <i class="fas fa-money-bill"></i> Monto (Q)
-                                    </label>
-                                    <input type="number" class="form-control" id="montoAdmin" 
-                                           placeholder="Ej: 150" step="0.01" min="0.01" required>
-                                </div>
-
-                                <button type="submit" class="btn btn-warning btn-lg w-100">
-                                    <i class="fas fa-save"></i> Crear Cuota
-                                </button>
-                            </form>
-
-                            <div id="mensajeCreacionCuota" class="alert mt-3 d-none"></div>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- RESUMEN DE EMPRESAS -->
-                <div class="col-lg-6 mb-4">
-                    <div class="card">
-                        <div class="card-header bg-warning text-dark">
-                            <h5 class="mb-0">
-                                <i class="fas fa-chart-pie"></i> Resumen de Empresas
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <div id="resumenEmpresas">
-                                <!-- Se llenará con JavaScript -->
+                    <div class="row mt-4">
+                        <!-- LISTADO DE CUOTAS DEL SISTEMA -->
+                        <div class="col-lg-12">
+                            <div class="card">
+                                <div class="card-header bg-primary text-white">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-list"></i> Historial de Cuotas del Sistema
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <div id="todasLasCuotas" class="table-responsive">
+                                        <!-- Se llenará con JavaScript -->
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="row mt-4">
-                <!-- LISTADO DE CUOTAS DEL SISTEMA -->
-                <div class="col-lg-12">
-                    <div class="card">
-                        <div class="card-header bg-warning text-dark">
-                            <h5 class="mb-0">
-                                <i class="fas fa-list"></i> Todas las Cuotas del Sistema
-                            </h5>
+                <!-- TAB: CREAR USUARIO -->
+                <div class="tab-pane fade" id="contentCrearUsuario">
+                    <div class="row justify-content-center">
+                        <div class="col-lg-6">
+                            <div class="card">
+                                <div class="card-header bg-success text-white">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-user-plus"></i> Crear Nuevo Usuario
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <form onsubmit="crearNuevoUsuario(event)" id="formCrearUsuario">
+                                        <div class="mb-3">
+                                            <label for="rolUsuario" class="form-label">
+                                                <i class="fas fa-user-tag"></i> Rol
+                                            </label>
+                                            <select class="form-control" id="rolUsuario" required onchange="actualizarSugerenciaId()">
+                                                <option value="">Seleccione un rol</option>
+                                                <option value="Cliente">Cliente</option>
+                                                <option value="Cajero">Cajero</option>
+                                                <option value="Admin">Admin</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="idNuevoUsuario" class="form-label">
+                                                <i class="fas fa-id-card"></i> ID del Usuario
+                                            </label>
+                                            <div class="input-group">
+                                                <input type="number" class="form-control" id="idNuevoUsuario" 
+                                                       placeholder="Sugerencia: 4" min="1" required>
+                                                <span class="input-group-text" id="formatoIdSugerencia">cli-26-01</span>
+                                            </div>
+                                            <small class="text-muted">ID en BD (formato visual será automático)</small>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="nombreNuevoUsuario" class="form-label">
+                                                <i class="fas fa-user"></i> Nombre
+                                            </label>
+                                            <input type="text" class="form-control" id="nombreNuevoUsuario" 
+                                                   placeholder="Nombre completo" required>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="pinNuevoUsuario" class="form-label">
+                                                <i class="fas fa-key"></i> PIN
+                                            </label>
+                                            <input type="password" class="form-control" id="pinNuevoUsuario" 
+                                                   placeholder="Ingrese PIN numérico" pattern="\d{4}" required>
+                                            <small class="text-muted">PIN debe ser numérico (4 dígitos)</small>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="saldoInicialUsuario" class="form-label">
+                                                <i class="fas fa-money-bill"></i> Saldo Inicial (Q)
+                                            </label>
+                                            <input type="number" class="form-control" id="saldoInicialUsuario" 
+                                                   placeholder="Ej: 1000" step="0.01" min="0" value="0">
+                                        </div>
+
+                                        <button type="submit" class="btn btn-success btn-lg w-100">
+                                            <i class="fas fa-save"></i> Crear Usuario
+                                        </button>
+                                    </form>
+
+                                    <div id="mensajeCreacionUsuario" class="alert mt-3 d-none"></div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="card-body">
-                            <div id="todasLasCuotas" class="table-responsive">
-                                <!-- Se llenará con JavaScript -->
+                    </div>
+                </div>
+
+                <!-- TAB: LISTA DE USUARIOS -->
+                <div class="tab-pane fade" id="contentListaUsuarios">
+                    <!-- ALERTAS DE RECUPERACIÓN PIN -->
+                    <div class="row mb-4">
+                        <div class="col-lg-12">
+                            <div class="card border-danger">
+                                <div class="card-header bg-danger text-white">
+                                    <h5 class="mb-0 d-flex align-items-center justify-content-between">
+                                        <span>
+                                            <i class="fas fa-bell"></i> Solicitudes de Recuperación de PIN
+                                            <span class="badge bg-light text-danger ms-2" id="contadorSolicitudes">0</span>
+                                        </span>
+                                        <button type="button" class="btn btn-light btn-sm" onclick="cargarSolicitudesRecuperacion()">
+                                            <i class="fas fa-sync-alt"></i> Recargar
+                                        </button>
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <div id="alertasSolicitudes">
+                                        <!-- Se llenará con JavaScript -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TABLA DE USUARIOS -->
+                    <div class="row">
+                        <div class="col-lg-12">
+                            <div class="card">
+                                <div class="card-header bg-info text-white">
+                                    <h5 class="mb-0 d-flex align-items-center justify-content-between">
+                                        <span><i class="fas fa-users"></i> Gestión de Usuarios</span>
+                                        <div class="btn-group btn-group-sm">
+                                            <button type="button" class="btn btn-light btn-sm" onclick="filtrarUsuarios('todos')">
+                                                Todos
+                                            </button>
+                                            <button type="button" class="btn btn-light btn-sm" onclick="filtrarUsuarios('Admin')">
+                                                Admin
+                                            </button>
+                                            <button type="button" class="btn btn-light btn-sm" onclick="filtrarUsuarios('Cajero')">
+                                                Cajero
+                                            </button>
+                                            <button type="button" class="btn btn-light btn-sm" onclick="filtrarUsuarios('Cliente')">
+                                                Cliente
+                                            </button>
+                                        </div>
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-hover" id="tablaUsuarios">
+                                            <thead class="table-dark">
+                                                <tr>
+                                                    <th>ID</th>
+                                                    <th>Nombre</th>
+                                                    <th>Rol</th>
+                                                    <th>PIN</th>
+                                                    <th>Saldo</th>
+                                                    <th>Acciones</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="cuerpoTablaUsuarios">
+                                                <!-- Se llenará con JavaScript -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -333,8 +503,31 @@
                 <div class="modal-body">
                     <p><strong>Empresa:</strong> <span id="detalleEmpresa"></span></p>
                     <p><strong>Mes:</strong> <span id="detalleMes"></span></p>
-                    <p><strong>Monto:</strong> Q<span id="detalleMonto">0.00</span></p>
+
                     <hr>
+
+                    <div class="card bg-light mb-3">
+                        <div class="card-body">
+                            <h6 class="card-title">Desglose de Pago</h6>
+                            <div class="row mb-2">
+                                <div class="col-8">Monto Original:</div>
+                                <div class="col-4 text-end"><strong>Q<span id="detalleMontoOriginal">0.00</span></strong></div>
+                            </div>
+                            <div class="row mb-2" id="detalleFilaMora" style="display: none;">
+                                <div class="col-8">
+                                    Mora Acumulada:
+                                    <small class="d-block text-muted" id="detalleCalculoMora"></small>
+                                </div>
+                                <div class="col-4 text-end"><strong class="text-danger">Q<span id="detalleMoraAmount">0.00</span></strong></div>
+                            </div>
+                            <hr class="my-2">
+                            <div class="row">
+                                <div class="col-8"><h5>Total a Pagar:</h5></div>
+                                <div class="col-4 text-end"><h5 class="text-success">Q<span id="detalleTotalPago">0.00</span></h5></div>
+                            </div>
+                        </div>
+                    </div>
+
                     <p class="text-muted">¿Desea proceder con el pago de esta cuota?</p>
                 </div>
                 <div class="modal-footer">
@@ -389,34 +582,114 @@
         </div>
     </div>
 
-    <!-- MODAL PARA RETIRO DE CAJERO -->
-    <div class="modal fade" id="modalRetiroCajero" tabindex="-1">
+    <!-- MODAL PARA DETALLES DEL USUARIO (ADMIN) -->
+    <div class="modal fade" id="modalDetallesUsuario" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
-                <div class="modal-header bg-danger text-white">
+                <div class="modal-header bg-primary text-white">
                     <h5 class="modal-title">
-                        <i class="fas fa-money-bill"></i> Retirar Dinero
+                        <i class="fas fa-user-circle"></i> Detalles del Usuario
                     </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <form onsubmit="confirmarRetiroCajero(event)" id="formRetiroCajero">
+                    <input type="hidden" id="idUsuarioDetalles">
+                    <input type="hidden" id="nombreUsuarioDetalles">
+
+                    <div class="mb-3">
+                        <label for="pinAdminVerificacionDetalles" class="form-label">
+                            <i class="fas fa-lock"></i> Tu PIN de Administrador
+                        </label>
+                        <input type="password" class="form-control" id="pinAdminVerificacionDetalles" 
+                               placeholder="Ingresa tu PIN para ver detalles" required>
+                        <small class="text-muted">Se requiere tu PIN para ver la información completa</small>
+                    </div>
+
+                    <div id="detallesUsuarioInfo" class="mt-3">
+                        <!-- Se llenará con JavaScript después de verificar PIN -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="button" class="btn btn-primary" onclick="verDetallesUsuario()">
+                        <i class="fas fa-search"></i> Ver Detalles
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL PARA RECUPERAR PIN -->
+    <div class="modal fade" id="modalRecuperarPin" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title">
+                        <i class="fas fa-redo"></i> Solicitar Recuperación de PIN
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form onsubmit="solicitarRecuperacionPin(event)" id="formRecuperarPin">
                         <div class="mb-3">
-                            <label for="montoRetiroCajero" class="form-label">
-                                <i class="fas fa-coins"></i> Monto a Retirar (Q)
+                            <label for="idUsuarioRecuperar" class="form-label">
+                                <i class="fas fa-id-card"></i> Tu ID de Usuario
                             </label>
-                            <input type="number" class="form-control form-control-lg" id="montoRetiroCajero" 
-                                   placeholder="Ej: 100" step="0.01" min="0.01" required>
+                            <input type="number" class="form-control form-control-lg" id="idUsuarioRecuperar" 
+                                   placeholder="Ingresa tu ID" min="1" required>
                         </div>
-                        <p class="text-muted">Ingrese el monto a retirar de la cuenta del cliente.</p>
+                        <p class="text-muted">El administrador será notificado de tu solicitud y te ayudará a recuperar tu PIN.</p>
                     </form>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-danger" onclick="confirmarRetiroCajero()">
-                        <i class="fas fa-check"></i> Confirmar Retiro
+                    <button type="button" class="btn btn-warning" onclick="solicitarRecuperacionPin()">
+                        <i class="fas fa-paper-plane"></i> Enviar Solicitud
                     </button>
                 </div>
+                <div id="mensajeRecuperacion" class="alert alert-info m-3 d-none"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL PARA CAMBIAR PIN (ADMIN) -->
+    <div class="modal fade" id="modalCambiarPin" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-key"></i> Cambiar PIN del Usuario
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="idUsuarioCambiarPin">
+
+                    <form onsubmit="cambiarPinUsuario(event)" id="formCambiarPin">
+                        <div class="mb-3">
+                            <label for="pinAdminVerificacion" class="form-label">
+                                <i class="fas fa-lock"></i> Tu PIN de Administrador
+                            </label>
+                            <input type="password" class="form-control" id="pinAdminVerificacion" 
+                                   placeholder="Ingresa tu PIN para confirmar" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="nuevoPin" class="form-label">
+                                <i class="fas fa-key"></i> Nuevo PIN
+                            </label>
+                            <input type="password" class="form-control" id="nuevoPin" 
+                                   placeholder="Ingresa el nuevo PIN (4 dígitos)" pattern="\d{4}" required>
+                        </div>
+                        <p class="text-muted">El usuario deberá usar este nuevo PIN para acceder.</p>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-danger" onclick="cambiarPinUsuario()">
+                        <i class="fas fa-save"></i> Cambiar PIN
+                    </button>
+                </div>
+                <div id="mensajeCambioPin" class="alert m-3 d-none"></div>
             </div>
         </div>
     </div>

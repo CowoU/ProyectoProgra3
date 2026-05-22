@@ -10,5 +10,6 @@ namespace ProyectoProgra3.Data
         public DbSet<Usuario> Usuarios { get; set; }
         public DbSet<Empresa> Empresas { get; set; }
         public DbSet<Cuota> Cuotas { get; set; }
+        public DbSet<SolicitudRecuperacionPin> SolicitudesRecuperacionPin { get; set; }
     }
 }

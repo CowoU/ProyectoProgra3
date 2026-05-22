@@ -1,4 +1,7 @@
 using ProyectoProgra3.Models;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace ProyectoProgra3.Services
 {
@@ -15,9 +18,24 @@ namespace ProyectoProgra3.Services
         private const decimal PORCENTAJE_EMPRESA = 0.95m; // 95% al servicio
         private const decimal PORCENTAJE_COMISION_BANCO = 0.05m; // 5% al banco
 
+        // Nueva constante de mora por mes
+        private const decimal MORA_POR_MES = 25m;
+
         public PagoService(DataService dataService)
         {
             _dataService = dataService;
+        }
+
+        // ============================================================================
+        // MÉTODOS PÚBLICOS DE ACCESO A DATOS
+        // ============================================================================
+
+        /// <summary>
+        /// Obtiene una cuota por su ID (acceso público para controladores)
+        /// </summary>
+        public Cuota ObtenerCuota(int idCuota)
+        {
+            return _dataService.ObtenerCuotaPorId(idCuota);
         }
 
         // ============================================================================
@@ -172,6 +190,198 @@ namespace ProyectoProgra3.Services
             }
         }
 
+        /// <summary>
+        /// Calcula la mora acumulada (Q25 por mes atrasado) entre la fecha de vencimiento y la fecha actual
+        /// </summary>
+        public decimal CalcularMora(Cuota cuota, DateTime fechaReferencia)
+        {
+            if (cuota == null || !cuota.FechaVencimiento.HasValue)
+                return 0m;
+
+            var fechaVenc = cuota.FechaVencimiento.Value.Date;
+            if (fechaReferencia.Date <= fechaVenc)
+                return 0m;
+
+            // calcular meses completos entre fechaVenc y fechaReferencia
+            int mesesAtraso = ((fechaReferencia.Year - fechaVenc.Year) * 12) + (fechaReferencia.Month - fechaVenc.Month);
+            if (mesesAtraso < 1) return 0m;
+
+            return mesesAtraso * MORA_POR_MES;
+        }
+
+        /// <summary>
+        /// Obtiene cuotas pendientes vencidas de un usuario (FechaVencimiento anterior a fechaReferencia)
+        /// </summary>
+        public List<Cuota> ObtenerCuotasVencidas(int idUsuario, DateTime fechaReferencia)
+        {
+            var todas = _dataService.ObtenerCuotasPendientesPorUsuario(idUsuario);
+            return todas.Where(c => c.FechaVencimiento.HasValue && c.FechaVencimiento.Value.Date < fechaReferencia.Date).ToList();
+        }
+
+        /// <summary>
+        /// Procesa el pago de una cuota, pero antes verifica y liquida cuotas vencidas (más antiguas) aplicando mora acumulada.
+        /// Regla: si hay cuotas anteriores pendientes, se cobrarán primero (incluyendo mora) en orden cronológico.
+        /// </summary>
+        public ResultadoPago ProcesarPagoCuotaConMora(int idUsuario, int idCuota)
+        {
+            var resultado = new ResultadoPago();
+
+            try
+            {
+                // Obtener cuota objetivo (debe estar pendiente)
+                var cuotaObjetivo = _dataService.ObtenerCuotaPorId(idCuota);
+                if (cuotaObjetivo == null || cuotaObjetivo.Estado != "Pendiente")
+                {
+                    resultado.Exitoso = false;
+                    resultado.Mensaje = "La cuota no existe o no está pendiente";
+                    return resultado;
+                }
+
+                if (cuotaObjetivo.IdUsuario != idUsuario)
+                {
+                    resultado.Exitoso = false;
+                    resultado.Mensaje = "No tiene permiso para pagar esta cuota";
+                    return resultado;
+                }
+
+                var usuario = _dataService.ObtenerUsuarioPorId(idUsuario);
+                if (usuario == null)
+                {
+                    resultado.Exitoso = false;
+                    resultado.Mensaje = "Usuario no encontrado";
+                    return resultado;
+                }
+
+                // Obtener todas las cuotas pendientes del usuario y ordenar por fecha de vencimiento asc
+                var pendientes = _dataService.ObtenerCuotasPendientesPorUsuario(idUsuario)
+                    .OrderBy(c => c.FechaVencimiento ?? DateTime.MaxValue).ToList();
+
+                // Fecha de referencia: hoy
+                var hoy = DateTime.Now.Date;
+
+                // Verificar y liquidar cuotas vencidas anteriores a la cuota objetivo
+                decimal totalMoraAplicada = 0m;
+                decimal totalPagado = 0m;
+
+                // Recorremos las cuotas pendientes en orden; cuando encontramos la cuotaObjetivo, la procesamos al final
+                foreach (var cuota in pendientes)
+                {
+                    if (cuota.Id == idCuota)
+                    {
+                        // procesaremos la cuota objetivo después de limpiar anteriores
+                        break;
+                    }
+
+                    // Solo cuotas con FechaVencimiento anterior a hoy se consideran vencidas
+                    if (cuota.FechaVencimiento.HasValue && cuota.FechaVencimiento.Value.Date < hoy)
+                    {
+                        // Calcular mora acumulada
+                        var mora = CalcularMora(cuota, hoy);
+                        var totalAPagar = cuota.Monto + mora;
+
+                        if (usuario.SaldoBancario >= totalAPagar)
+                        {
+                            // Pagar cuota atrasada
+                            usuario.SaldoBancario -= totalAPagar;
+
+                            var montoParaEmpresa = cuota.Monto * PORCENTAJE_EMPRESA;
+                            var comisionBanco = cuota.Monto * PORCENTAJE_COMISION_BANCO;
+
+                            // Actualizar empresa y comisiones
+                            var empresa = _dataService.ObtenerEmpresaPorId(cuota.IdEmpresa);
+                            if (empresa != null)
+                            {
+                                _dataService.ActualizarSaldoEmpresa(empresa.Id, empresa.SaldoAcumulado + montoParaEmpresa);
+                            }
+
+                            _dataService.ActualizarComisionesBanco(_dataService.ObtenerComisionesBanco() + comisionBanco);
+
+                            // Marcar cuota como pagada con mora
+                            _dataService.MarcarCuotaComoPagadaConMora(cuota.Id, mora);
+
+                            totalMoraAplicada += mora;
+                            totalPagado += totalAPagar;
+                        }
+                        else
+                        {
+                            resultado.Exitoso = false;
+                            resultado.Mensaje = "Saldo insuficiente para liquidar cuotas vencidas anteriores. Por favor, abone primero.";
+                            return resultado;
+                        }
+                    }
+                }
+
+                // Actualizar el saldo del usuario en la BD antes de procesar la cuota objetivo
+                _dataService.ActualizarSaldoUsuario(usuario.Id, usuario.SaldoBancario);
+
+                // Ahora procesar la cuota objetivo (puede ser que ya esté pagada si era anterior)
+                var cuotaActualizada = _dataService.ObtenerCuotaPorId(idCuota);
+                if (cuotaActualizada == null || cuotaActualizada.Estado != "Pendiente")
+                {
+                    // Si la cuota ya fue pagada por el proceso anterior, devolver éxito
+                    resultado.Exitoso = true;
+                    resultado.Mensaje = "Se pagaron las cuotas vencidas anteriores.";
+                    resultado.MontoOriginal = totalPagado;
+                    resultado.MontoParaEmpresa = 0m;
+                    resultado.ComisionBanco = 0m;
+                    resultado.SaldoRestante = usuario.SaldoBancario;
+                    resultado.Empresa = cuotaObjetivo != null ? _dataService.ObtenerEmpresaPorId(cuotaObjetivo.IdEmpresa)?.Nombre : string.Empty;
+                    resultado.FechaPago = DateTime.Now;
+                    return resultado;
+                }
+
+                // Validar saldo suficiente para cuota objetivo (solo monto, mora si aplica)
+                var moraParaObjetivo = CalcularMora(cuotaActualizada, hoy);
+                var totalObjetivo = cuotaActualizada.Monto + moraParaObjetivo;
+
+                if (usuario.SaldoBancario < totalObjetivo)
+                {
+                    resultado.Exitoso = false;
+                    resultado.Mensaje = "Saldo insuficiente para pagar la cuota actual (incluyendo mora).";
+                    return resultado;
+                }
+
+                // Realizar el pago de la cuota objetivo
+                usuario.SaldoBancario -= totalObjetivo;
+                var montoParaEmpresaObj = cuotaActualizada.Monto * PORCENTAJE_EMPRESA;
+                var comisionBancoObj = cuotaActualizada.Monto * PORCENTAJE_COMISION_BANCO;
+
+                var empresaObj = _dataService.ObtenerEmpresaPorId(cuotaActualizada.IdEmpresa);
+                if (empresaObj != null)
+                {
+                    _dataService.ActualizarSaldoEmpresa(empresaObj.Id, empresaObj.SaldoAcumulado + montoParaEmpresaObj);
+                }
+
+                _dataService.ActualizarComisionesBanco(_dataService.ObtenerComisionesBanco() + comisionBancoObj);
+
+                // Marcar cuota objetivo como pagada con mora
+                _dataService.MarcarCuotaComoPagadaConMora(cuotaActualizada.Id, moraParaObjetivo);
+
+                // Actualizar saldo del usuario
+                _dataService.ActualizarSaldoUsuario(usuario.Id, usuario.SaldoBancario);
+
+                // Construir resultado final
+                resultado.Exitoso = true;
+                resultado.Mensaje = "Pago realizado: cuotas vencidas anteriores (si existían) y cuota seleccionada.";
+                resultado.MontoOriginal = totalPagado + cuotaActualizada.Monto;
+                resultado.MontoParaEmpresa = (totalPagado + cuotaActualizada.Monto) * PORCENTAJE_EMPRESA;
+                resultado.ComisionBanco = (totalPagado + cuotaActualizada.Monto) * PORCENTAJE_COMISION_BANCO;
+                resultado.SaldoRestante = usuario.SaldoBancario;
+                resultado.Empresa = empresaObj?.Nombre;
+                resultado.FechaPago = DateTime.Now;
+
+                return resultado;
+            }
+            catch (Exception ex)
+            {
+                return new ResultadoPago
+                {
+                    Exitoso = false,
+                    Mensaje = "Error procesando pago con mora: " + ex.Message
+                };
+            }
+        }
+
         // ============================================================================
         // MÉTODOS PARA OPERACIONES DE CAJERO (Banco)
         // ============================================================================
@@ -256,8 +466,18 @@ namespace ProyectoProgra3.Services
 
                 if (cuotasExistentes.Any())
                 {
+                    var cuotaExistente = cuotasExistentes.First();
                     resultado.Exitoso = false;
-                    resultado.Mensaje = "Ya existe una cuota para este usuario, empresa y mes";
+
+                    // Mejorar el mensaje indicando si está pagada o pendiente
+                    if (cuotaExistente.Estado == "Pagado")
+                    {
+                        resultado.Mensaje = "Esta cuota ya fue pagada. No se puede crear una cuota duplicada.";
+                    }
+                    else
+                    {
+                        resultado.Mensaje = "Ya existe una cuota pendiente de pago para este usuario, empresa y mes. El usuario debe pagarla antes de crear una nueva.";
+                    }
                     return resultado;
                 }
 
@@ -314,6 +534,57 @@ namespace ProyectoProgra3.Services
 
             return _dataService.RetirarDinero(idUsuario, monto);
         }
+
+        /// <summary>
+        /// Crea un nuevo usuario en el sistema
+        /// </summary>
+        public ResultadoCreacionUsuario CrearUsuario(int id, string nombre, string pin, string rol, decimal saldoInicial)
+        {
+            var resultado = new ResultadoCreacionUsuario();
+
+            try
+            {
+                // Validar que el usuario no exista
+                var usuarioExistente = _dataService.ObtenerUsuarioPorId(id);
+                if (usuarioExistente != null)
+                {
+                    resultado.Exitoso = false;
+                    resultado.Mensaje = "Ya existe un usuario con ese ID";
+                    return resultado;
+                }
+
+                // Validar datos
+                if (string.IsNullOrWhiteSpace(nombre) || string.IsNullOrWhiteSpace(pin))
+                {
+                    resultado.Exitoso = false;
+                    resultado.Mensaje = "Nombre y PIN son requeridos";
+                    return resultado;
+                }
+
+                // Crear el usuario
+                var usuario = _dataService.CrearNuevoUsuario(id, nombre, pin, rol, saldoInicial);
+
+                resultado.Exitoso = true;
+                resultado.Mensaje = "Usuario creado exitosamente";
+                resultado.Usuario = usuario;
+
+                return resultado;
+            }
+            catch (Exception ex)
+            {
+                resultado.Exitoso = false;
+                resultado.Mensaje = "Error al crear usuario: " + ex.Message;
+                return resultado;
+            }
+        }
+
+        /// <summary>
+        /// Obtiene el máximo ID de usuario en el sistema
+        /// </summary>
+        public int ObtenerMaxIdUsuario()
+        {
+            return _dataService.ObtenerMaxIdUsuario();
+        }
     }
 
     // ============================================================================
@@ -345,6 +616,16 @@ namespace ProyectoProgra3.Services
         public Cuota Cuota { get; set; }
         public string UsuarioNombre { get; set; }
         public string EmpresaNombre { get; set; }
+    }
+
+    /// <summary>
+    /// Clase que contiene el resultado de la creación de un usuario
+    /// </summary>
+    public class ResultadoCreacionUsuario
+    {
+        public bool Exitoso { get; set; }
+        public string Mensaje { get; set; }
+        public Usuario Usuario { get; set; }
     }
 
     /// <summary>

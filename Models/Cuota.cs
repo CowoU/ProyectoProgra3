@@ -1,3 +1,4 @@
+using System;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ProyectoProgra3.Models
@@ -27,5 +28,11 @@ namespace ProyectoProgra3.Models
 
         [Column("estado")]
         public string Estado { get; set; }
+
+        [Column("fecha_vencimiento")]
+        public DateTime? FechaVencimiento { get; set; }
+
+        [Column("mora")]
+        public decimal Mora { get; set; } = 0m;
     }
 }

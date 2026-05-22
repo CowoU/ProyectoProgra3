@@ -5,9 +5,30 @@
 // VARIABLES GLOBALES
 let usuarioActual = null;
 let cuotaACtualizar = null;
+let empresasCache = null; // Cache de empresas para búsquedas rápidas
 
 // URL BASE DE LA API
-const API_URL = 'http://localhost:5019/api';
+const API_URL = 'https://proyectobanco-e5a8acfedfccfkbg.eastus2-01.azurewebsites.net/api';
+
+// Mapeo de formatos de ID por rol
+const FORMATO_ID = {
+    'Cliente': 'cli',
+    'Cajero': 'caj',
+    'Admin': 'adm'
+};
+
+// Función para generar formato visual de ID
+function generarFormatoId(idNumerico, rol) {
+    const prefijo = FORMATO_ID[rol] || 'usr';
+    const año = new Date().getFullYear().toString().slice(2); // últimos 2 dígitos del año
+    const idFormato = String(idNumerico).padStart(2, '0');
+    return `${prefijo}-${año}-${idFormato}`;
+}
+
+// Función para mostrar ID con formato visual
+function mostrarIdFormato(idNumerico, rol) {
+    return `<span title="ID: ${idNumerico}">${generarFormatoId(idNumerico, rol)}</span>`;
+}
 
 // ============================================================================
 // FUNCIONES DE AUTENTICACIÓN
@@ -68,7 +89,7 @@ function cerrarSesion() {
 function mostrarPantallaPorRol(rol) {
     document.getElementById('navbar').style.display = 'block';
     document.getElementById('usuarioActual').innerHTML =
-        `<i class="fas fa-user"></i> ${usuarioActual.nombre} <span class="badge bg-info">${rol}</span>`;
+        `<i class="fas fa-user"></i> ${usuarioActual.nombre} ${mostrarIdFormato(usuarioActual.id, rol)} <span class="badge bg-info">${rol}</span>`;
 
     const pantallas = ['loginScreen', 'panelCliente', 'panelCajero', 'panelAdmin'];
     pantallas.forEach(id => {
@@ -96,7 +117,10 @@ function mostrarPantallaPorRol(rol) {
 async function cargarPanelCliente() {
     try {
         document.getElementById('clienteNombre').textContent = usuarioActual.nombre;
-        document.getElementById('clienteId').textContent = usuarioActual.id;
+        document.getElementById('clienteId').innerHTML = mostrarIdFormato(usuarioActual.id, usuarioActual.rol);
+
+        // Cargar empresas en cache para uso posterior
+        await cargarEmpresas();
 
         // Obtener saldo actualizado de la BD
         const saldoResponse = await fetch(`${API_URL}/cajero/buscar-usuario/${usuarioActual.id}`);
@@ -141,6 +165,7 @@ function mostrarCuotasPendientes(cuotas) {
             <thead>
                 <tr>
                     <th>ID</th>
+                    <th>Empresa</th>
                     <th>Mes</th>
                     <th>Monto</th>
                     <th>Acción</th>
@@ -150,14 +175,17 @@ function mostrarCuotasPendientes(cuotas) {
     `;
 
     cuotas.forEach(cuota => {
+        const empresa = empresasCache?.find(e => e.id === cuota.idEmpresa);
+        const nombreEmpresa = empresa ? empresa.nombre : 'Desconocida';
         html += `
             <tr>
                 <td><strong>${cuota.id}</strong></td>
+                <td>${nombreEmpresa}</td>
                 <td>${cuota.mes}</td>
                 <td><strong>Q${parseFloat(cuota.monto).toFixed(2)}</strong></td>
                 <td>
                     <button class="btn btn-sm btn-primary" 
-                            onclick="abrirModalPago(${cuota.id}, '${cuota.mes}', ${cuota.monto})">
+                            onclick="abrirModalPago(${cuota.id}, '${nombreEmpresa}', '${cuota.mes}', ${cuota.monto})">
                         <i class="fas fa-money-bill"></i> Pagar
                     </button>
                 </td>
@@ -169,18 +197,55 @@ function mostrarCuotasPendientes(cuotas) {
     tablaCuotasDiv.innerHTML = html;
 }
 
-function abrirModalPago(idCuota, mes, monto) {
+function abrirModalPago(idCuota, nombreEmpresa, mes, monto) {
     cuotaACtualizar = idCuota;
+    document.getElementById('detalleEmpresa').textContent = nombreEmpresa;
     document.getElementById('detalleMes').textContent = mes;
-    document.getElementById('detalleMonto').textContent = parseFloat(monto).toFixed(2);
+    document.getElementById('detalleMontoOriginal').textContent = parseFloat(monto).toFixed(2);
+
+    // Llamar al backend para calcular la mora
+    calcularYMostrarMora(idCuota, parseFloat(monto));
 
     const modal = new bootstrap.Modal(document.getElementById('modalConfirmarPago'));
     modal.show();
 }
 
+async function calcularYMostrarMora(idCuota, montoOriginal) {
+    try {
+        const response = await fetch(`${API_URL}/pagos/calcular-mora/${idCuota}`);
+        const data = await response.json();
+
+        if (data.exitoso) {
+            const mora = parseFloat(data.mora);
+            const total = parseFloat(data.total);
+
+            // Mostrar la mora si es mayor a 0
+            if (mora > 0) {
+                document.getElementById('detalleFilaMora').style.display = 'flex';
+                document.getElementById('detalleMoraAmount').textContent = mora.toFixed(2);
+
+                // Calcular cuántos meses de atraso
+                const mesesAtraso = Math.round(mora / 25);
+                document.getElementById('detalleCalculoMora').textContent = `${mesesAtraso} mes(es) × Q25`;
+            } else {
+                document.getElementById('detalleFilaMora').style.display = 'none';
+            }
+
+            document.getElementById('detalleTotalPago').textContent = total.toFixed(2);
+        } else {
+            document.getElementById('detalleFilaMora').style.display = 'none';
+            document.getElementById('detalleTotalPago').textContent = montoOriginal.toFixed(2);
+        }
+    } catch (error) {
+        console.error('Error calculando mora:', error);
+        document.getElementById('detalleFilaMora').style.display = 'none';
+        document.getElementById('detalleTotalPago').textContent = montoOriginal.toFixed(2);
+    }
+}
+
 async function confirmarPago() {
     try {
-        const response = await fetch(`${API_URL}/pagos/pagar-cuota`, {
+        const response = await fetch(`${API_URL}/pagos/pagar-cuota-con-mora`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -198,6 +263,7 @@ async function confirmarPago() {
         } else {
             mostrarResultadoPagoError(data.mensaje);
         }
+
     } catch (error) {
         console.error('Error al procesar pago:', error);
         mostrarResultadoPagoError('Error al procesar el pago: ' + error.message);
@@ -296,6 +362,7 @@ function mostrarHistorialCuotas(cuotas) {
         <table class="table table-hover">
             <thead>
                 <tr>
+                    <th>Empresa</th>
                     <th>Mes</th>
                     <th>Monto</th>
                     <th>Estado</th>
@@ -305,14 +372,26 @@ function mostrarHistorialCuotas(cuotas) {
     `;
 
     cuotas.forEach(cuota => {
-        const badgeClase = cuota.estado === 'Pagado' ? 'badge-success' : 'badge-warning';
-        const estadoTexto = cuota.estado === 'Pagado' ? '✓ Pagado' : '⏳ Pendiente';
+        const empresa = empresasCache?.find(e => e.id === cuota.idEmpresa);
+        const nombreEmpresa = empresa ? empresa.nombre : 'Desconocida';
+        
+        let estadoTexto, rowClase, textColor;
+        if (cuota.estado === 'Pagado') {
+            estadoTexto = 'Pagado';
+            rowClase = 'table-success';
+            textColor = '#16a34a';
+        } else {
+            estadoTexto = 'Pendiente';
+            rowClase = 'table-warning';
+            textColor = '#f59e0b';
+        }
 
         html += `
-            <tr>
+            <tr class="${rowClase}">
+                <td><strong>${nombreEmpresa}</strong></td>
                 <td><strong>${cuota.mes}</strong></td>
                 <td>Q${parseFloat(cuota.monto).toFixed(2)}</td>
-                <td><span class="badge ${badgeClase}">${estadoTexto}</span></td>
+                <td><strong style="color: ${textColor}">${estadoTexto}</strong></td>
             </tr>
         `;
     });
@@ -406,7 +485,7 @@ async function buscarUsuarioCajero() {
             }
 
             document.getElementById('usuarioBusquedaNombre').textContent = data.usuario.nombre;
-            document.getElementById('idCuentaBancaria').textContent = data.usuario.id;
+            document.getElementById('idCuentaBancaria').innerHTML = mostrarIdFormato(data.usuario.id, data.usuario.rol);
             document.getElementById('saldoCuentaBancaria').textContent = 
                 parseFloat(data.usuario.saldoBancario).toFixed(2);
 
@@ -549,24 +628,36 @@ async function cargarPanelAdmin() {
         await cargarEmpresas();
         await cargarResumenEmpresas();
         await cargarTodasLasCuotas();
+        await actualizarSugerenciaId();
     } catch (error) {
         console.error('Error al cargar panel admin:', error);
     }
 }
 
 async function cargarEmpresas() {
-    const empresas = [
-        { id: 1, nombre: 'Cementerio El Descanso' },
-        { id: 2, nombre: 'Condominio Las Flores' }
-    ];
-
-    const select = document.getElementById('idEmpresaAdmin');
-    empresas.forEach(empresa => {
-        const option = document.createElement('option');
-        option.value = empresa.id;
-        option.textContent = empresa.nombre;
-        select.appendChild(option);
-    });
+    try {
+        if (empresasCache) return; // Si ya están cargadas, no cargar de nuevo
+        
+        const response = await fetch(`${API_URL}/pagos/empresas`);
+        const data = await response.json();
+        
+        if (data && Array.isArray(data)) {
+            empresasCache = data;
+            
+            // Si estamos en panel admin, llenar select
+            const select = document.getElementById('idEmpresaAdmin');
+            if (select && select.children.length <= 1) {
+                data.forEach(empresa => {
+                    const option = document.createElement('option');
+                    option.value = empresa.id;
+                    option.textContent = empresa.nombre;
+                    select.appendChild(option);
+                });
+            }
+        }
+    } catch (error) {
+        console.error('Error cargando empresas:', error);
+    }
 }
 
 async function cargarResumenEmpresas() {
@@ -596,7 +687,144 @@ async function cargarResumenEmpresas() {
 }
 
 async function cargarTodasLasCuotas() {
-    // Placeholder - se implementaría si hay endpoint para obtener todas las cuotas
+    try {
+        const response = await fetch(`${API_URL}/adminservicios/todas-las-cuotas`);
+        const cuotas = await response.json();
+
+        const contenedor = document.getElementById('todasLasCuotas');
+
+        if (cuotas && cuotas.length > 0) {
+            let html = `
+                <table class="table table-striped mt-3">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Usuario</th>
+                            <th>Empresa</th>
+                            <th>Mes</th>
+                            <th>Monto</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+            cuotas.forEach(c => {
+                const badgeClass = c.estado === 'Pagado' ? 'bg-success' : 'bg-warning';
+                const rowClase = c.estado === 'Pagado' ? 'table-success' : 'table-warning';
+                const empresa = empresasCache?.find(e => e.id === c.idEmpresa);
+                const nombreEmpresa = empresa ? empresa.nombre : 'Desconocida';
+                
+                html += `
+                    <tr class="${rowClase}">
+                        <td>${c.id}</td>
+                        <td>${c.idUsuario}</td>
+                        <td>${nombreEmpresa}</td>
+                        <td>${c.mes}</td>
+                        <td>Q${parseFloat(c.monto).toFixed(2)}</td>
+                        <td><span class="badge ${badgeClass}">${c.estado}</span></td>
+                        <td>
+                            <button class="btn btn-sm btn-danger" 
+                                    onclick="borrarCuota(${c.id})">
+                                <i class="fas fa-trash"></i> Eliminar
+                            </button>
+                        </td>
+                    </tr>`;
+            });
+
+            html += `</tbody></table>`;
+            contenedor.innerHTML = html;
+        } else {
+            contenedor.innerHTML = '<p class="text-center p-3">No hay cuotas registradas en el sistema.</p>';
+        }
+    } catch (error) {
+        console.error('Error al cargar todas las cuotas:', error);
+    }
+}
+
+async function actualizarSugerenciaId() {
+    try {
+        const rolSelect = document.getElementById('rolUsuario');
+        const rol = rolSelect.value;
+        
+        if (!rol) {
+            document.getElementById('formatoIdSugerencia').textContent = '--';
+            document.getElementById('idNuevoUsuario').placeholder = 'Seleccione un rol primero';
+            document.getElementById('idNuevoUsuario').value = '';
+            return;
+        }
+
+        // Obtener el máximo ID actual para ese rol
+        const response = await fetch(`${API_URL}/auth/obtener-max-id`);
+        const data = await response.json();
+        const maxId = data.maxId || 0;
+        const siguienteId = maxId + 1;
+
+        // Actualizar placeholder y formato visual
+        document.getElementById('idNuevoUsuario').placeholder = `Sugerencia: ${siguienteId}`;
+        document.getElementById('idNuevoUsuario').value = siguienteId;
+        
+        // Mostrar formato visual
+        const formatoVisual = generarFormatoId(siguienteId, rol);
+        document.getElementById('formatoIdSugerencia').textContent = formatoVisual;
+    } catch (error) {
+        console.error('Error actualizando sugerencia de ID:', error);
+        document.getElementById('formatoIdSugerencia').textContent = '-- error --';
+    }
+}
+
+async function crearNuevoUsuario(event) {
+    event.preventDefault();
+
+    const rol = document.getElementById('rolUsuario').value;
+    const id = parseInt(document.getElementById('idNuevoUsuario').value);
+    const nombre = document.getElementById('nombreNuevoUsuario').value;
+    const pin = document.getElementById('pinNuevoUsuario').value;
+    const saldoInicial = parseFloat(document.getElementById('saldoInicialUsuario').value) || 0;
+
+    if (!rol || !id || !nombre || !pin) {
+        mostrarMensajeCreacionUsuario('error', 'Todos los campos son requeridos');
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/auth/crear-usuario`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id: id,
+                nombre: nombre,
+                pin: pin,
+                rol: rol,
+                saldoBancario: saldoInicial
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.exitoso) {
+            const formatoId = generarFormatoId(id, rol);
+            mostrarMensajeCreacionUsuario('success', 
+                `✓ Usuario ${rol} creado exitosamente (${formatoId})`);
+            document.getElementById('formCrearUsuario').reset();
+            await actualizarSugerenciaId();
+        } else {
+            mostrarMensajeCreacionUsuario('error', data.mensaje);
+        }
+    } catch (error) {
+        mostrarMensajeCreacionUsuario('error', 'Error al crear usuario: ' + error.message);
+    }
+}
+
+function mostrarMensajeCreacionUsuario(tipo, mensaje) {
+    const mensajeDiv = document.getElementById('mensajeCreacionUsuario');
+    mensajeDiv.className = `alert alert-${tipo}`;
+    mensajeDiv.textContent = mensaje;
+    mensajeDiv.classList.remove('d-none');
+
+    setTimeout(() => {
+        mensajeDiv.classList.add('d-none');
+    }, 4000);
 }
 
 async function crearNuevaCuota(event) {
@@ -623,8 +851,9 @@ async function crearNuevaCuota(event) {
 
         if (data.exitoso) {
             mostrarMensajeCreacionCuota('success', 
-                `✓ Cuota de Q${monto.toFixed(2)} creada exitosamente para ${mes}`);
+                `✓ Cuota de Q${monto.toFixed(2)} creada exitosamente para usuario ${idUsuario}`);
             document.getElementById('formCrearCuota').reset();
+            await cargarTodasLasCuotas();
         } else {
             mostrarMensajeCreacionCuota('error', data.mensaje);
         }
@@ -642,6 +871,493 @@ function mostrarMensajeCreacionCuota(tipo, mensaje) {
     setTimeout(() => {
         mensajeDiv.classList.add('d-none');
     }, 4000);
+}
+
+// Función para borrar cuota (Admin)
+async function borrarCuota(idCuota) {
+    if (!confirm('¿Desea eliminar esta cuota? Esta acción no se puede deshacer.')) return;
+
+    try {
+        const response = await fetch(`${API_URL}/adminservicios/borrar-cuota/${idCuota}`, {
+            method: 'DELETE'
+        });
+
+        const data = await response.json();
+        if (data.exitoso) {
+            alert('Cuota eliminada correctamente');
+            await cargarTodasLasCuotas();
+        } else {
+            alert('Error al eliminar cuota: ' + (data.mensaje || 'Error desconocido'));
+        }
+    } catch (error) {
+        alert('Error al eliminar cuota: ' + error.message);
+    }
+}
+
+// ============================================================================
+// FUNCIONES PARA GESTIÓN DE USUARIOS Y RECUPERACIÓN DE PIN
+// ============================================================================
+
+/**
+ * Muestra la pestaña seleccionada en el admin
+ */
+function mostrarTabAdmin(tab) {
+    // Esta función es llamada por los botones de tab, pero Bootstrap ya lo maneja
+    // Esta es más para asegurar que se carguen datos cuando sea necesario
+    if (tab === 'usuarios') {
+        cargarListaUsuarios();
+    }
+}
+
+/**
+ * Abre el modal de recuperación de PIN
+ */
+function abrirModalRecuperarPin() {
+    document.getElementById('idUsuarioRecuperar').value = '';
+    document.getElementById('formRecuperarPin').reset();
+    const modal = new bootstrap.Modal(document.getElementById('modalRecuperarPin'));
+    modal.show();
+}
+
+/**
+ * Solicita la recuperación de PIN
+ */
+async function solicitarRecuperacionPin(event) {
+    if (event) event.preventDefault();
+
+    const idUsuario = document.getElementById('idUsuarioRecuperar').value;
+    if (!idUsuario) {
+        alert('Por favor ingresa tu ID de usuario');
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/usuarios/solicitar-recuperacion-pin`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ idUsuario: parseInt(idUsuario) })
+        });
+
+        const data = await response.json();
+
+        const mensajeDiv = document.getElementById('mensajeRecuperacion');
+        if (data.exitoso) {
+            mensajeDiv.className = 'alert alert-success m-3';
+            mensajeDiv.textContent = '✓ ' + data.mensaje;
+            mensajeDiv.classList.remove('d-none');
+
+            setTimeout(() => {
+                bootstrap.Modal.getInstance(document.getElementById('modalRecuperarPin')).hide();
+                document.getElementById('formRecuperarPin').reset();
+            }, 2000);
+        } else {
+            mensajeDiv.className = 'alert alert-danger m-3';
+            mensajeDiv.textContent = '✗ ' + (data.mensaje || 'Error al solicitar');
+            mensajeDiv.classList.remove('d-none');
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+/**
+ * Carga la lista de usuarios en la tabla
+ */
+async function cargarListaUsuarios() {
+    try {
+        const response = await fetch(`${API_URL}/usuarios/todos`);
+        const data = await response.json();
+
+        if (data.exitoso) {
+            mostrarTablaUsuarios(data.usuarios);
+        } else {
+            alert('Error al cargar usuarios: ' + (data.mensaje || 'Error desconocido'));
+        }
+    } catch (error) {
+        alert('Error al cargar usuarios: ' + error.message);
+    }
+}
+
+/**
+ * Filtra usuarios por rol
+ */
+async function filtrarUsuarios(rol) {
+    try {
+        let url = `${API_URL}/usuarios/todos`;
+        if (rol !== 'todos') {
+            url = `${API_URL}/usuarios/filtrar-por-rol/${rol}`;
+        }
+
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.exitoso) {
+            mostrarTablaUsuarios(data.usuarios || []);
+        } else {
+            alert('Error al filtrar usuarios: ' + (data.mensaje || 'Error desconocido'));
+        }
+    } catch (error) {
+        alert('Error al filtrar usuarios: ' + error.message);
+    }
+}
+
+/**
+ * Muestra la tabla de usuarios con sus acciones
+ */
+function mostrarTablaUsuarios(usuarios) {
+    const tbody = document.getElementById('cuerpoTablaUsuarios');
+    tbody.innerHTML = '';
+
+    if (!usuarios || usuarios.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No hay usuarios</td></tr>';
+        return;
+    }
+
+    usuarios.forEach(usuario => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${usuario.id}</td>
+            <td>${usuario.nombre}</td>
+            <td>
+                <span class="badge bg-${getBadgeColor(usuario.rol)}">
+                    ${usuario.rol}
+                </span>
+            </td>
+            <td>
+                <span class="text-muted">****</span>
+            </td>
+            <td>Q${parseFloat(usuario.saldoBancario || 0).toFixed(2)}</td>
+            <td>
+                <button class="btn btn-sm btn-info" onclick="abrirDetallesUsuario(${usuario.id}, '${usuario.nombre}')">
+                    <i class="fas fa-eye"></i> Detalles
+                </button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+/**
+ * Abre el modal de detalles del usuario
+ */
+function abrirDetallesUsuario(idUsuario, nombreUsuario) {
+    // Guardamos el ID para usarlo después
+    document.getElementById('idUsuarioDetalles').value = idUsuario;
+    document.getElementById('nombreUsuarioDetalles').value = nombreUsuario;
+    document.getElementById('pinAdminVerificacionDetalles').value = '';
+    document.getElementById('detallesUsuarioInfo').innerHTML = '';
+
+    const modal = new bootstrap.Modal(document.getElementById('modalDetallesUsuario'));
+    modal.show();
+}
+
+/**
+ * Obtiene los detalles completos del usuario (requiere PIN del admin)
+ */
+async function verDetallesUsuario() {
+    const idAdmin = usuarioActual.id;
+    const pinAdmin = document.getElementById('pinAdminVerificacionDetalles').value;
+    const idUsuario = parseInt(document.getElementById('idUsuarioDetalles').value);
+
+    if (!pinAdmin) {
+        alert('Por favor ingresa tu PIN de administrador');
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/usuarios/obtener-detalles`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                idAdmin: idAdmin,
+                pinAdmin: pinAdmin,
+                idUsuario: idUsuario
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.exitoso) {
+            const usuario = data.usuario;
+            const info = `
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <tr><th>ID:</th><td>${usuario.id}</td></tr>
+                        <tr><th>Nombre:</th><td>${usuario.nombre}</td></tr>
+                        <tr><th>PIN:</th><td><code>${usuario.pin}</code></td></tr>
+                        <tr><th>Rol:</th><td><span class="badge bg-${getBadgeColor(usuario.rol)}">${usuario.rol}</span></td></tr>
+                        <tr><th>Saldo:</th><td>Q${parseFloat(usuario.saldoBancario || 0).toFixed(2)}</td></tr>
+                    </table>
+                </div>
+                <button class="btn btn-danger w-100 mt-3" onclick="abrirModalCambiarPin(${usuario.id})">
+                    <i class="fas fa-key"></i> Cambiar PIN
+                </button>
+            `;
+            document.getElementById('detallesUsuarioInfo').innerHTML = info;
+        } else {
+            alert('Error: ' + (data.mensaje || 'PIN incorrecto o error al obtener detalles'));
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+/**
+ * Abre el modal para cambiar PIN
+ */
+function abrirModalCambiarPin(idUsuario) {
+    document.getElementById('idUsuarioCambiarPin').value = idUsuario;
+    document.getElementById('pinAdminVerificacion').value = '';
+    document.getElementById('nuevoPin').value = '';
+    document.getElementById('formCambiarPin').reset();
+
+    // Cerrar modal de detalles
+    bootstrap.Modal.getInstance(document.getElementById('modalDetallesUsuario')).hide();
+
+    const modal = new bootstrap.Modal(document.getElementById('modalCambiarPin'));
+    modal.show();
+}
+
+/**
+ * Cambia el PIN del usuario
+ */
+async function cambiarPinUsuario(event) {
+    if (event) event.preventDefault();
+
+    const idAdmin = usuarioActual.id;
+    const pinAdmin = document.getElementById('pinAdminVerificacion').value;
+    const idUsuario = parseInt(document.getElementById('idUsuarioCambiarPin').value);
+    const nuevoPin = document.getElementById('nuevoPin').value;
+
+    if (!pinAdmin || !nuevoPin) {
+        alert('Por favor completa todos los campos');
+        return;
+    }
+
+    if (nuevoPin.length !== 4 || !/^\d+$/.test(nuevoPin)) {
+        alert('El PIN debe ser numérico y tener 4 dígitos');
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/usuarios/cambiar-pin`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                idAdmin: idAdmin,
+                pinAdmin: pinAdmin,
+                idUsuario: idUsuario,
+                nuevoPin: nuevoPin
+            })
+        });
+
+        const data = await response.json();
+
+        const mensajeDiv = document.getElementById('mensajeCambioPin');
+        if (data.exitoso) {
+            mensajeDiv.className = 'alert alert-success m-3';
+            mensajeDiv.textContent = '✓ ' + data.mensaje;
+            mensajeDiv.classList.remove('d-none');
+
+            setTimeout(() => {
+                bootstrap.Modal.getInstance(document.getElementById('modalCambiarPin')).hide();
+                document.getElementById('formCambiarPin').reset();
+                cargarListaUsuarios(); // Recargar lista
+            }, 2000);
+        } else {
+            mensajeDiv.className = 'alert alert-danger m-3';
+            mensajeDiv.textContent = '✗ ' + (data.mensaje || 'Error al cambiar PIN');
+            mensajeDiv.classList.remove('d-none');
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+/**
+ * Obtiene el color del badge según el rol
+ */
+function getBadgeColor(rol) {
+    switch (rol) {
+        case 'Admin':
+            return 'danger';
+        case 'Cajero':
+            return 'warning';
+        case 'Cliente':
+            return 'success';
+        default:
+            return 'secondary';
+    }
+}
+
+// ============================================================================
+// FUNCIONES PARA ALERTAS DE RECUPERACIÓN PIN
+// ============================================================================
+
+/**
+ * Carga y muestra las solicitudes de recuperación PIN en el panel del admin
+ */
+async function cargarSolicitudesRecuperacion() {
+    try {
+        const response = await fetch(`${API_URL}/usuarios/solicitudes-pendientes`);
+        const data = await response.json();
+
+        if (data.exitoso) {
+            mostrarAlertasSolicitudes(data.solicitudes || []);
+            actualizarContadorSolicitudes(data.cantidad || 0);
+        } else {
+            console.error('Error al cargar solicitudes:', data.mensaje);
+        }
+    } catch (error) {
+        console.error('Error al cargar solicitudes:', error.message);
+    }
+}
+
+/**
+ * Muestra las solicitudes de recuperación PIN en formato de alertas
+ */
+function mostrarAlertasSolicitudes(solicitudes) {
+    const container = document.getElementById('alertasSolicitudes');
+
+    if (!solicitudes || solicitudes.length === 0) {
+        container.innerHTML = '<p class="text-muted text-center">No hay solicitudes pendientes</p>';
+        return;
+    }
+
+    let html = '<div class="list-group">';
+
+    solicitudes.forEach(solicitud => {
+        const fecha = new Date(solicitud.fechaSolicitud);
+        const fechaFormato = fecha.toLocaleString('es-ES');
+        const tiempoAtras = calcularTiempoAtras(fecha);
+
+        html += `
+            <div class="list-group-item list-group-item-danger">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <h6 class="mb-1">
+                            <i class="fas fa-user-circle"></i> 
+                            Usuario #${solicitud.idUsuario} - ${solicitud.nombreUsuario}
+                        </h6>
+                        <small class="text-muted">
+                            <i class="fas fa-clock"></i> ${tiempoAtras}
+                            <br>
+                            ${fechaFormato}
+                        </small>
+                    </div>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" 
+                                class="btn btn-warning" 
+                                onclick="abrirModalCambiarPinSolicitud(${solicitud.idUsuario})">
+                            <i class="fas fa-key"></i> Cambiar PIN
+                        </button>
+                        <button type="button" 
+                                class="btn btn-success" 
+                                onclick="marcarSolicitudResuelta(${solicitud.idUsuario})">
+                            <i class="fas fa-check"></i> Resuelta
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+/**
+ * Actualiza el contador de solicitudes pendientes
+ */
+function actualizarContadorSolicitudes(cantidad) {
+    const contador = document.getElementById('contadorSolicitudes');
+    if (contador) {
+        contador.textContent = cantidad;
+        // Mostrar el contador en rojo si hay solicitudes
+        if (cantidad > 0) {
+            contador.classList.remove('bg-light', 'text-danger');
+            contador.classList.add('bg-danger', 'text-white', 'animate__animated', 'animate__pulse');
+        } else {
+            contador.classList.add('bg-light', 'text-danger');
+            contador.classList.remove('bg-danger', 'text-white');
+        }
+    }
+}
+
+/**
+ * Calcula el tiempo transcurrido desde una fecha en formato legible
+ */
+function calcularTiempoAtras(fecha) {
+    const ahora = new Date();
+    const diferencia = ahora - fecha;
+    const minutos = Math.floor(diferencia / 60000);
+    const horas = Math.floor(diferencia / 3600000);
+    const días = Math.floor(diferencia / 86400000);
+
+    if (minutos < 1) {
+        return 'Hace menos de un minuto';
+    } else if (minutos < 60) {
+        return `Hace ${minutos} minuto${minutos > 1 ? 's' : ''}`;
+    } else if (horas < 24) {
+        return `Hace ${horas} hora${horas > 1 ? 's' : ''}`;
+    } else {
+        return `Hace ${días} día${días > 1 ? 's' : ''}`;
+    }
+}
+
+/**
+ * Abre el modal para cambiar PIN desde solicitud de recuperación
+ */
+function abrirModalCambiarPinSolicitud(idUsuario) {
+    document.getElementById('idUsuarioCambiarPin').value = idUsuario;
+    document.getElementById('pinAdminVerificacion').value = '';
+    document.getElementById('nuevoPin').value = '';
+    document.getElementById('formCambiarPin').reset();
+
+    const modal = new bootstrap.Modal(document.getElementById('modalCambiarPin'));
+    modal.show();
+}
+
+/**
+ * Marca una solicitud de recuperación PIN como resuelta
+ */
+async function marcarSolicitudResuelta(idUsuario) {
+    try {
+        const response = await fetch(`${API_URL}/usuarios/marcar-solicitud-resuelta/${idUsuario}`, {
+            method: 'POST'
+        });
+
+        const data = await response.json();
+
+        if (data.exitoso) {
+            alert('✓ Solicitud marcada como resuelta');
+            // Recargar las solicitudes
+            await cargarSolicitudesRecuperacion();
+        } else {
+            alert('Error: ' + (data.mensaje || 'No se pudo marcar como resuelta'));
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+/**
+ * Se ejecuta cuando el admin abre la pestaña de usuarios
+ * para cargar las solicitudes pendientes
+ */
+function mostrarTabAdmin(tab) {
+    // Si es la pestaña de usuarios, cargar solicitudes
+    if (tab === 'usuarios') {
+        setTimeout(() => {
+            cargarSolicitudesRecuperacion();
+        }, 300); // Esperar a que la transición del tab termine
+    }
 }
 
 // Inicializar la navbar como oculta al cargar la página
