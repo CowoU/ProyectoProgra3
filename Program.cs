@@ -30,45 +30,22 @@ builder.Services.AddCors(options =>
 // INSTANCIA ÚNICA DE LA APP (Solo se debe compilar una vez)
 var app = builder.Build();
 
-// Agregar middleware adicional para asegurar encabezados CORS en respuestas,
-// útil en entornos donde un proxy o la plataforma de despliegue pueda eliminarlos.
-app.Use(async (context, next) =>
+app.MapOpenApi();
+
+app.MapScalarApiReference(options =>
 {
-    if (!context.Response.Headers.ContainsKey("Access-Control-Allow-Origin"))
-        context.Response.Headers.Add("Access-Control-Allow-Origin", new[] { "*" });
-
-    if (string.Equals(context.Request.Method, "OPTIONS", StringComparison.OrdinalIgnoreCase))
-    {
-        context.Response.Headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,DELETE,OPTIONS";
-        context.Response.Headers["Access-Control-Allow-Headers"] = "Content-Type,Authorization";
-        context.Response.StatusCode = 204;
-        await context.Response.CompleteAsync();
-        return;
-    }
-
-    await next();
+    options.WithTitle(
+        "Portal de Pagos - API Scalar"
+    )
+    .WithTheme(
+        ScalarTheme.BluePlanet
+    );
 });
-
-// ============================================================================
-// 2. CONFIGURACIÓN DEL PIPELINE DE MIDDLEWARES (El orden es estricto)
-// ============================================================================
-
-// Configurar documentación y testing (Solo se activa en Entorno de Desarrollo)
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-    app.MapScalarApiReference(options =>
-    {
-        options.WithTitle("Portal de Pagos - API Scalar")
-               .WithTheme(ScalarTheme.BluePlanet)
-               .WithDefaultHttpClient(ScalarTarget.CSharp, ScalarClient.HttpClient);
-    });
-}
 
 app.UseHttpsRedirection();
 
-// Servir archivos del Frontend (si los tienes dentro de wwwroot)
 app.UseDefaultFiles();
+
 app.UseStaticFiles();
 
 app.UseRouting();
