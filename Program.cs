@@ -5,43 +5,49 @@ using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ============================================================================
-// 1. CONFIGURACIÓN DE SERVICIOS (Antes de builder.Build())
-// ============================================================================
-
-// Configurar la cadena de conexión a MySQL
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
 
-// Registrar tus servicios de la lógica de negocio
-builder.Services.AddScoped<DataService>();
-builder.Services.AddScoped<PagoService>();
+builder.Services.AddScoped<BancoService>();
+builder.Services.AddHttpClient();
+
+builder.Services.AddScoped<
+    CementerioService
+>();
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
-// Configurar Políticas de CORS (Centralizadas en un solo bloque)
 builder.Services.AddCors(options =>
 {
-    // Política 1: Permitir todo (Ideal para quitar el error de conexión rápido en Azure)
     options.AddPolicy("AllowAll", policy =>
     {
         policy.AllowAnyOrigin()
               .AllowAnyMethod()
               .AllowAnyHeader();
     });
-
-    // Política 2: Restringido (Más segura para cuando ya esté listo en producción)
-    options.AddPolicy("PermitirFrontend", policy =>
-    {
-        policy.WithOrigins("https://tu-frontend-en-azure.azurewebsites.net") // <-- Coloca aquí la URL de tu frontend de Azure si está separado
-              .AllowAnyHeader()
-              .AllowAnyMethod();
-    });
 });
-
 // INSTANCIA ÚNICA DE LA APP (Solo se debe compilar una vez)
 var app = builder.Build();
+
+// Agregar middleware adicional para asegurar encabezados CORS en respuestas,
+// útil en entornos donde un proxy o la plataforma de despliegue pueda eliminarlos.
+app.Use(async (context, next) =>
+{
+    if (!context.Response.Headers.ContainsKey("Access-Control-Allow-Origin"))
+        context.Response.Headers.Add("Access-Control-Allow-Origin", new[] { "*" });
+
+    if (string.Equals(context.Request.Method, "OPTIONS", StringComparison.OrdinalIgnoreCase))
+    {
+        context.Response.Headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,DELETE,OPTIONS";
+        context.Response.Headers["Access-Control-Allow-Headers"] = "Content-Type,Authorization";
+        context.Response.StatusCode = 204;
+        await context.Response.CompleteAsync();
+        return;
+    }
+
+    await next();
+});
 
 // ============================================================================
 // 2. CONFIGURACIÓN DEL PIPELINE DE MIDDLEWARES (El orden es estricto)
@@ -67,8 +73,6 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
-// ACTIVACIÓN DE CORS: Debe ir estrictamente después de UseRouting y antes de los controladores.
-// Nota: Usamos "AllowAll" para asegurar que tu Web App de Azure no rechace los Preflights (peticiones de login).
 app.UseCors("AllowAll");
 
 app.UseAuthorization();

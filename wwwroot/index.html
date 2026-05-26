@@ -3,480 +3,263 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portal Multitenant de Pago de Servicios</title>
+    <title>Sistema Bancario</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="css/estilos.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .navbar { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .card { 
+            border: none; 
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            border-radius: 8px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .card:hover { 
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+        }
+        .btn-primary { 
+            background: #667eea; 
+            border: none;
+            font-weight: 500;
+        }
+        .btn-primary:hover { 
+            background: #764ba2;
+            transform: translateY(-1px);
+        }
+        .login-container { 
+            max-width: 420px; 
+            margin: 100px auto;
+        }
+        .login-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        .section { display: none; }
+        .section.active { display: block; }
+        .saldo-display { 
+            font-size: 2.5rem; 
+            color: #667eea; 
+            font-weight: bold;
+        }
+        .nav-tabs {
+            border-bottom: 2px solid #e9ecef;
+            background: white;
+            border-radius: 8px 8px 0 0;
+        }
+        .nav-tabs .nav-link {
+            color: #667eea;
+            border: none;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        .nav-tabs .nav-link:hover {
+            color: #764ba2;
+            border-bottom: 2px solid #764ba2;
+        }
+        .nav-tabs .nav-link.active {
+            color: white;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+        }
+        .tab-content {
+            background: white;
+            border-radius: 0 0 8px 8px;
+            padding: 25px;
+        }
+        .card-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+            color: white !important;
+            border: none;
+            border-radius: 8px 8px 0 0 !important;
+        }
+        .badge { font-size: 0.85rem; padding: 0.4rem 0.8rem; }
+        .btn-sm { font-size: 0.85rem; }
+        .table { font-size: 0.95rem; }
+        .table thead { background: #f8f9fa; }
+        .table-hover tbody tr:hover { background-color: #f1f3ff; }
+        .alert { border-radius: 8px; }
+        .form-control, .form-select { 
+            border-radius: 6px;
+            border: 1px solid #ddd;
+        }
+        .form-control:focus, .form-select:focus { 
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        .navbar-brand { font-weight: 600; font-size: 1.4rem; }
+        .modal-header { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+        }
+        .empty-state i { font-size: 3rem; margin-bottom: 15px; opacity: 0.5; }
+    </style>
 </head>
 <body>
-    <!-- BARRA DE NAVEGACIÓN -->
-    <nav class="navbar navbar-dark navbar-expand-lg bg-dark sticky-top" id="navbar">
+    <!-- NAVBAR -->
+    <nav id="navbar" class="navbar navbar-dark mb-0" style="display: none;">
         <div class="container-fluid">
-            <a class="navbar-brand" href="#">
-                <i class="fas fa-building"></i> Portal de Pagos
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <span class="nav-link" id="usuarioActual"></span>
-                    </li>
-                    <li class="nav-item">
-                        <button class="btn btn-danger btn-sm" id="btnCerrarSesion" onclick="cerrarSesion()">
-                            <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
-                        </button>
-                    </li>
-                </ul>
+            <span class="navbar-brand mb-0"><i class="fas fa-university"></i> Sistema Bancario</span>
+            <div>
+                <span id="usuarioNombre" class="text-white me-4"></span>
+                <button class="btn btn-light btn-sm" onclick="cerrarSesion()"><i class="fas fa-sign-out-alt"></i> Cerrar</button>
             </div>
         </div>
     </nav>
 
-    <!-- CONTENEDOR PRINCIPAL -->
-    <div class="container-fluid" id="mainContainer">
-        
-        <!-- PANTALLA DE LOGIN -->
-        <div id="loginScreen" class="pantalla">
-            <div class="login-container">
-                <div class="login-box">
+    <!-- LOGIN SECTION -->
+    <div id="loginSection" class="section active">
+        <div class="login-container">
+            <div class="card login-card">
+                <div class="card-body p-5">
                     <div class="text-center mb-4">
-                        <h1 class="mb-2">
-                            <i class="fas fa-lock text-primary"></i> Portal de Pagos
-                        </h1>
-                        <p class="text-muted">Ingrese sus credenciales para acceder al sistema</p>
+                        <i class="fas fa-university" style="font-size: 3rem; color: #667eea;"></i>
+                        <h2 class="mt-3">Sistema Bancario</h2>
+                        <p class="text-muted">Bienvenido</p>
                     </div>
-
-                    <form onsubmit="iniciarSesion(event)" id="loginForm">
+                    <form id="formLogin" onsubmit="iniciarSesion(event)">
                         <div class="mb-3">
-                            <label for="idUsuario" class="form-label">
-                                <i class="fas fa-id-card"></i> ID de Usuario
-                            </label>
-                            <input type="number" class="form-control form-control-lg" id="idUsuario" 
-                                   placeholder="Ej: 1" required min="1">
+                            <label class="form-label"><i class="fas fa-id-card"></i> ID de Usuario</label>
+                            <input type="number" id="usuarioId" class="form-control" placeholder="Ingrese su ID" required>
                         </div>
-
                         <div class="mb-3">
-                            <label for="pinUsuario" class="form-label">
-                                <i class="fas fa-key"></i> PIN
-                            </label>
-                            <input type="password" class="form-control form-control-lg" id="pinUsuario" 
-                                   placeholder="Ingrese su PIN" required>
+                            <label class="form-label"><i class="fas fa-key"></i> PIN</label>
+                            <input type="password" id="usuarioPin" class="form-control" placeholder="Ingrese su PIN" required>
                         </div>
-
-                        <button type="submit" class="btn btn-primary btn-lg w-100 mb-3">
-                            <i class="fas fa-sign-in-alt"></i> Ingresar
-                        </button>
-
-                        <button type="button" class="btn btn-link w-100 mb-3" onclick="abrirModalRecuperarPin()">
-                            <i class="fas fa-redo"></i> ¿Olvidaste tu PIN? Solicitar recuperación
-                        </button>
+                        <button type="submit" class="btn btn-primary w-100 mb-2"><i class="fas fa-sign-in-alt"></i> Ingresar</button>
                     </form>
-
-                    <div class="alert alert-info alert-sm">
-                        <small>
-                            <strong>Datos de prueba:</strong><br>
-                            ID: 1, PIN: 1234 (Cliente)<br>
-                            ID: 6, PIN: 2468 (Cajero)<br>
-                            ID: 7, PIN: 1357 (Admin)
-                        </small>
-                    </div>
-
-                    <div id="mensajeError" class="alert alert-danger d-none mt-3"></div>
+                    <button type="button" class="btn btn-outline-primary w-100" data-bs-toggle="modal" data-bs-target="#modalRecuperarPin">
+                        <i class="fas fa-key"></i> ¿Olvidó su PIN?
+                    </button>
+                    <div id="loginError" class="alert alert-danger mt-3" style="display: none;"></div>
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- PANEL DE CLIENTE -->
-        <div id="panelCliente" class="pantalla d-none">
-            <div class="row mt-4">
-                <!-- TARJETA DE INFORMACIÓN DEL USUARIO -->
-                <div class="col-lg-4 mb-4">
-                    <div class="card h-100 card-info">
-                        <div class="card-body">
-                            <h5 class="card-title">
-                                <i class="fas fa-user-circle"></i> Mi Información
-                            </h5>
-                            <hr>
-                            <p class="card-text">
-                                <strong>Nombre:</strong> <span id="clienteNombre"></span>
-                            </p>
-                            <p class="card-text">
-                                <strong>ID:</strong> <span id="clienteId"></span>
-                            </p>
-                            <hr>
-                            <h6 class="mb-3">Saldo Disponible</h6>
-                            <div class="saldo-display">
-                                Q<span id="saldoActual" class="display-5">0.00</span>
-                            </div>
-                            <button class="btn btn-danger w-100 mt-3" onclick="abrirModalRetiroCliente()">
-                                <i class="fas fa-money-bill"></i> Retirar Dinero
-                            </button>
-                            <div id="alertaRetiroCliente" class="alert mt-3 d-none"></div>
-                        </div>
-                    </div>
-                </div>
+    <!-- ADMIN SECTION -->
+    <div id="adminSection" class="section">
+        <div class="container-fluid mt-4 mb-4">
+            <h1 class="mb-4" style="color: white;"><i class="fas fa-user-tie"></i> Panel Administrativo</h1>
 
-                <!-- TABLA DE CUOTAS PENDIENTES -->
-                <div class="col-lg-8 mb-4">
-                    <div class="card h-100">
-                        <div class="card-header bg-primary text-white">
-                            <h5 class="mb-0">
-                                <i class="fas fa-credit-card"></i> Cuotas Pendientes
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <div id="tablaCuotas" class="table-responsive">
-                                <!-- Se llenará con JavaScript -->
-                            </div>
-                            <div id="sinCuotas" class="alert alert-success d-none">
-                                <i class="fas fa-check-circle"></i> No tiene cuotas pendientes. ¡Excelente!
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="row mt-4">
-                <!-- HISTORIAL DE PAGOS -->
-                <div class="col-lg-12">
-                    <div class="card">
-                        <div class="card-header bg-info text-white">
-                            <h5 class="mb-0">
-                                <i class="fas fa-history"></i> Historial de Cuotas (Pagadas y Pendientes)
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <div id="historialCuotas" class="table-responsive">
-                                <!-- Se llenará con JavaScript -->
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- PANEL DE CAJERO -->
-        <div id="panelCajero" class="pantalla d-none">
-            <div class="row mt-4">
-                <!-- BUSCAR USUARIO -->
-                <div class="col-lg-6 mb-4">
-                    <div class="card">
-                        <div class="card-header bg-success text-white">
-                            <h5 class="mb-0">
-                                <i class="fas fa-search"></i> Buscar Usuario
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="mb-3">
-                                <label for="idUsuarioBusqueda" class="form-label">
-                                    <i class="fas fa-id-card"></i> ID del Usuario
-                                </label>
-                                <div class="input-group">
-                                    <input type="number" class="form-control" id="idUsuarioBusqueda" 
-                                           placeholder="Ingrese el ID" min="1">
-                                    <button class="btn btn-success" type="button" onclick="buscarUsuarioCajero()">
-                                        <i class="fas fa-search"></i> Buscar
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div id="infoUsuarioBusqueda" class="d-none">
-                                <hr>
-                                <h6>Información del Usuario</h6>
-                                <p><strong>Nombre:</strong> <span id="usuarioBusquedaNombre"></span></p>
-                                <p><strong>ID Cuenta:</strong> <span id="idCuentaBancaria"></span></p>
-                                <p><strong>Saldo Actual:</strong> Q<span id="saldoCuentaBancaria">0.00</span></p>
-                            </div>
-
-                            <div id="errorBusqueda" class="alert alert-danger d-none mt-3"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- REALIZAR DEPÓSITO -->
-                <div class="col-lg-6 mb-4">
-                    <div class="card">
-                        <div class="card-header bg-success text-white">
-                            <h5 class="mb-0">
-                                <i class="fas fa-money-bill-wave"></i> Realizar Depósito
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <form onsubmit="realizarDeposito(event)" id="formDeposito">
-                                <div class="mb-3">
-                                    <label for="montoDeposito" class="form-label">
-                                        <i class="fas fa-coins"></i> Monto a Depositar (Q)
-                                    </label>
-                                    <input type="number" class="form-control form-control-lg" id="montoDeposito" 
-                                           placeholder="Ej: 500" step="0.01" min="0.01" required disabled>
-                                </div>
-
-                                <button type="submit" class="btn btn-success btn-lg w-100" id="btnDepositar" disabled>
-                                    <i class="fas fa-plus-circle"></i> Depositar Dinero
-                                </button>
-                            </form>
-
-                            <button class="btn btn-danger btn-lg w-100 mt-2" id="btnRetiroCajero" 
-                                    onclick="abrirModalRetiroCajero()" disabled>
-                                <i class="fas fa-money-bill"></i> Retirar Dinero
-                            </button>
-
-                            <div id="mensajeDeposito" class="alert mt-3 d-none"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- PANEL DE ADMIN DE SERVICIOS -->
-        <div id="panelAdmin" class="pantalla d-none">
-            <!-- MENÚ DE TABS SUPERIOR -->
-            <div class="alert alert-dark mt-3 mb-0">
-                <div class="btn-group w-100" role="tablist">
-                    <button class="btn btn-outline-primary active" id="tabPrincipal" data-bs-toggle="tab" data-bs-target="#contentPrincipal" onclick="mostrarTabAdmin('principal')">
-                        <i class="fas fa-home"></i> Panel Principal
+            <!-- TABS ADMIN -->
+            <ul class="nav nav-tabs" role="tablist">
+                <li class="nav-item">
+                    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#adminUsuarios">
+                        <i class="fas fa-users"></i> Gestión de Usuarios
                     </button>
-                    <button class="btn btn-outline-success" id="tabCrearUsuario" data-bs-toggle="tab" data-bs-target="#contentCrearUsuario" onclick="mostrarTabAdmin('crear')">
-                        <i class="fas fa-user-plus"></i> Crear Usuario
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#adminSolicitudes">
+                        <i class="fas fa-key"></i> Solicitudes de PIN
                     </button>
-                    <button class="btn btn-outline-info" id="tabListaUsuarios" data-bs-toggle="tab" data-bs-target="#contentListaUsuarios" onclick="mostrarTabAdmin('usuarios')">
-                        <i class="fas fa-users"></i> Lista de Usuarios
-                    </button>
-                </div>
-            </div>
+                </li>
+            </ul>
 
-            <div class="tab-content mt-4">
-                <!-- TAB: PANEL PRINCIPAL -->
-                <div class="tab-pane fade show active" id="contentPrincipal">
+            <div class="tab-content">
+                <!-- TAB: GESTIÓN USUARIOS -->
+                <div id="adminUsuarios" class="tab-pane fade show active">
                     <div class="row">
-                        <!-- CREAR NUEVA CUOTA -->
-                        <div class="col-lg-6 mb-4">
+                        <div class="col-md-5 mb-4">
                             <div class="card">
-                                <div class="card-header bg-warning text-dark">
-                                    <h5 class="mb-0">
-                                        <i class="fas fa-plus-circle"></i> Crear Nueva Cuota
-                                    </h5>
+                                <div class="card-header">
+                                    <h5 class="mb-0"><i class="fas fa-user-plus"></i> Crear Nuevo Usuario</h5>
                                 </div>
                                 <div class="card-body">
-                                    <form onsubmit="crearNuevaCuota(event)" id="formCrearCuota">
+                                    <form id="formCrearUsuario" onsubmit="crearUsuario(event)">
                                         <div class="mb-3">
-                                            <label for="idUsuarioAdmin" class="form-label">
-                                                <i class="fas fa-id-card"></i> ID del Usuario
-                                            </label>
-                                            <input type="number" class="form-control" id="idUsuarioAdmin" 
-                                                   placeholder="Ej: 1" min="1" required>
+                                            <label class="form-label">Nombre</label>
+                                            <input type="text" id="nombreUsuario" class="form-control" required>
                                         </div>
-
                                         <div class="mb-3">
-                                            <label for="idEmpresaAdmin" class="form-label">
-                                                <i class="fas fa-building"></i> Empresa
-                                            </label>
-                                            <select class="form-control" id="idEmpresaAdmin" required>
-                                                <option value="">Seleccione una empresa</option>
-                                                <!-- Se llenará con JavaScript -->
-                                            </select>
+                                            <label class="form-label">PIN</label>
+                                            <input type="password" id="pinUsuario" class="form-control" required>
                                         </div>
-
                                         <div class="mb-3">
-                                            <label for="mesAdmin" class="form-label">
-                                                <i class="fas fa-calendar"></i> Mes (YYYY-MM)
-                                            </label>
-                                            <input type="text" class="form-control" id="mesAdmin" 
-                                                   placeholder="Ej: 2024-12" pattern="\d{4}-\d{2}" required>
-                                        </div>
-
-                                        <div class="mb-3">
-                                            <label for="montoAdmin" class="form-label">
-                                                <i class="fas fa-money-bill"></i> Monto (Q)
-                                            </label>
-                                            <input type="number" class="form-control" id="montoAdmin" 
-                                                   placeholder="Ej: 150" step="0.01" min="0.01" required>
-                                        </div>
-
-                                        <button type="submit" class="btn btn-warning btn-lg w-100">
-                                            <i class="fas fa-save"></i> Crear Cuota
-                                        </button>
-                                    </form>
-
-                                    <div id="mensajeCreacionCuota" class="alert mt-3 d-none"></div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- RESUMEN DE EMPRESAS -->
-                        <div class="col-lg-6 mb-4">
-                            <div class="card">
-                                <div class="card-header bg-info text-white">
-                                    <h5 class="mb-0">
-                                        <i class="fas fa-chart-pie"></i> Resumen de Empresas
-                                    </h5>
-                                </div>
-                                <div class="card-body">
-                                    <div id="resumenEmpresas">
-                                        <!-- Se llenará con JavaScript -->
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row mt-4">
-                        <!-- LISTADO DE CUOTAS DEL SISTEMA -->
-                        <div class="col-lg-12">
-                            <div class="card">
-                                <div class="card-header bg-primary text-white">
-                                    <h5 class="mb-0">
-                                        <i class="fas fa-list"></i> Historial de Cuotas del Sistema
-                                    </h5>
-                                </div>
-                                <div class="card-body">
-                                    <div id="todasLasCuotas" class="table-responsive">
-                                        <!-- Se llenará con JavaScript -->
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- TAB: CREAR USUARIO -->
-                <div class="tab-pane fade" id="contentCrearUsuario">
-                    <div class="row justify-content-center">
-                        <div class="col-lg-6">
-                            <div class="card">
-                                <div class="card-header bg-success text-white">
-                                    <h5 class="mb-0">
-                                        <i class="fas fa-user-plus"></i> Crear Nuevo Usuario
-                                    </h5>
-                                </div>
-                                <div class="card-body">
-                                    <form onsubmit="crearNuevoUsuario(event)" id="formCrearUsuario">
-                                        <div class="mb-3">
-                                            <label for="rolUsuario" class="form-label">
-                                                <i class="fas fa-user-tag"></i> Rol
-                                            </label>
-                                            <select class="form-control" id="rolUsuario" required onchange="actualizarSugerenciaId()">
-                                                <option value="">Seleccione un rol</option>
+                                            <label class="form-label">Rol</label>
+                                            <select id="rolUsuario" class="form-select" required>
+                                                <option value="">Seleccionar rol</option>
                                                 <option value="Cliente">Cliente</option>
                                                 <option value="Cajero">Cajero</option>
                                                 <option value="Admin">Admin</option>
                                             </select>
                                         </div>
-
                                         <div class="mb-3">
-                                            <label for="idNuevoUsuario" class="form-label">
-                                                <i class="fas fa-id-card"></i> ID del Usuario
-                                            </label>
-                                            <div class="input-group">
-                                                <input type="number" class="form-control" id="idNuevoUsuario" 
-                                                       placeholder="Sugerencia: 4" min="1" required>
-                                                <span class="input-group-text" id="formatoIdSugerencia">cli-26-01</span>
-                                            </div>
-                                            <small class="text-muted">ID en BD (formato visual será automático)</small>
+                                            <label class="form-label">Saldo Inicial</label>
+                                            <input type="number" id="saldoUsuario" class="form-control" step="0.01" value="0" required>
                                         </div>
-
-                                        <div class="mb-3">
-                                            <label for="nombreNuevoUsuario" class="form-label">
-                                                <i class="fas fa-user"></i> Nombre
-                                            </label>
-                                            <input type="text" class="form-control" id="nombreNuevoUsuario" 
-                                                   placeholder="Nombre completo" required>
-                                        </div>
-
-                                        <div class="mb-3">
-                                            <label for="pinNuevoUsuario" class="form-label">
-                                                <i class="fas fa-key"></i> PIN
-                                            </label>
-                                            <input type="password" class="form-control" id="pinNuevoUsuario" 
-                                                   placeholder="Ingrese PIN numérico" pattern="\d{4}" required>
-                                            <small class="text-muted">PIN debe ser numérico (4 dígitos)</small>
-                                        </div>
-
-                                        <div class="mb-3">
-                                            <label for="saldoInicialUsuario" class="form-label">
-                                                <i class="fas fa-money-bill"></i> Saldo Inicial (Q)
-                                            </label>
-                                            <input type="number" class="form-control" id="saldoInicialUsuario" 
-                                                   placeholder="Ej: 1000" step="0.01" min="0" value="0">
-                                        </div>
-
-                                        <button type="submit" class="btn btn-success btn-lg w-100">
-                                            <i class="fas fa-save"></i> Crear Usuario
-                                        </button>
+                                        <button type="submit" class="btn btn-primary w-100"><i class="fas fa-plus"></i> Crear Usuario</button>
                                     </form>
+                                    <div id="mensajeCrearUsuario" class="alert mt-3" style="display: none;"></div>
+                                </div>
+                            </div>
+                        </div>
 
-                                    <div id="mensajeCreacionUsuario" class="alert mt-3 d-none"></div>
+                        <div class="col-md-7 mb-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0"><i class="fas fa-list"></i> Usuarios Registrados</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-hover mb-0">
+                                            <thead>
+                                                <tr>
+                                                    <th>ID</th>
+                                                    <th>Nombre</th>
+                                                    <th>Rol</th>
+                                                    <th>Saldo</th>
+                                                    <th>Acciones</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="tablaUsuarios">
+                                                <tr><td colspan="5" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- TAB: LISTA DE USUARIOS -->
-                <div class="tab-pane fade" id="contentListaUsuarios">
-                    <!-- ALERTAS DE RECUPERACIÓN PIN -->
-                    <div class="row mb-4">
-                        <div class="col-lg-12">
-                            <div class="card border-danger">
-                                <div class="card-header bg-danger text-white">
-                                    <h5 class="mb-0 d-flex align-items-center justify-content-between">
-                                        <span>
-                                            <i class="fas fa-bell"></i> Solicitudes de Recuperación de PIN
-                                            <span class="badge bg-light text-danger ms-2" id="contadorSolicitudes">0</span>
-                                        </span>
-                                        <button type="button" class="btn btn-light btn-sm" onclick="cargarSolicitudesRecuperacion()">
-                                            <i class="fas fa-sync-alt"></i> Recargar
-                                        </button>
-                                    </h5>
-                                </div>
-                                <div class="card-body">
-                                    <div id="alertasSolicitudes">
-                                        <!-- Se llenará con JavaScript -->
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- TABLA DE USUARIOS -->
+                <!-- TAB: SOLICITUDES PIN -->
+                <div id="adminSolicitudes" class="tab-pane fade">
                     <div class="row">
-                        <div class="col-lg-12">
+                        <div class="col-12">
                             <div class="card">
-                                <div class="card-header bg-info text-white">
-                                    <h5 class="mb-0 d-flex align-items-center justify-content-between">
-                                        <span><i class="fas fa-users"></i> Gestión de Usuarios</span>
-                                        <div class="btn-group btn-group-sm">
-                                            <button type="button" class="btn btn-light btn-sm" onclick="filtrarUsuarios('todos')">
-                                                Todos
-                                            </button>
-                                            <button type="button" class="btn btn-light btn-sm" onclick="filtrarUsuarios('Admin')">
-                                                Admin
-                                            </button>
-                                            <button type="button" class="btn btn-light btn-sm" onclick="filtrarUsuarios('Cajero')">
-                                                Cajero
-                                            </button>
-                                            <button type="button" class="btn btn-light btn-sm" onclick="filtrarUsuarios('Cliente')">
-                                                Cliente
-                                            </button>
-                                        </div>
-                                    </h5>
+                                <div class="card-header">
+                                    <h5 class="mb-0"><i class="fas fa-key"></i> Solicitudes de Recuperación de PIN</h5>
                                 </div>
                                 <div class="card-body">
                                     <div class="table-responsive">
-                                        <table class="table table-striped table-hover" id="tablaUsuarios">
-                                            <thead class="table-dark">
+                                        <table class="table table-hover mb-0">
+                                            <thead>
                                                 <tr>
                                                     <th>ID</th>
-                                                    <th>Nombre</th>
-                                                    <th>Rol</th>
-                                                    <th>PIN</th>
-                                                    <th>Saldo</th>
+                                                    <th>Usuario</th>
+                                                    <th>Fecha de Solicitud</th>
+                                                    <th>Estado</th>
                                                     <th>Acciones</th>
                                                 </tr>
                                             </thead>
-                                            <tbody id="cuerpoTablaUsuarios">
-                                                <!-- Se llenará con JavaScript -->
+                                            <tbody id="tablaSolicitudes">
+                                                <tr><td colspan="5" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>
                                             </tbody>
                                         </table>
                                     </div>
@@ -487,219 +270,224 @@
                 </div>
             </div>
         </div>
-
     </div>
 
-    <!-- MODAL PARA CONFIRMAR PAGO -->
-    <div class="modal fade" id="modalConfirmarPago" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title">
-                        <i class="fas fa-credit-card"></i> Confirmar Pago
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <p><strong>Empresa:</strong> <span id="detalleEmpresa"></span></p>
-                    <p><strong>Mes:</strong> <span id="detalleMes"></span></p>
+    <!-- CAJERO SECTION -->
+    <div id="cajeroSection" class="section">
+        <div class="container-fluid mt-4 mb-4">
+            <h1 class="mb-4" style="color: white;"><i class="fas fa-cash-register"></i> Panel Cajero</h1>
 
-                    <hr>
+            <ul class="nav nav-tabs" role="tablist">
+                <li class="nav-item">
+                    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#cajeroOperaciones">
+                        <i class="fas fa-exchange-alt"></i> Operaciones
+                    </button>
+                </li>
+            </ul>
 
-                    <div class="card bg-light mb-3">
-                        <div class="card-body">
-                            <h6 class="card-title">Desglose de Pago</h6>
-                            <div class="row mb-2">
-                                <div class="col-8">Monto Original:</div>
-                                <div class="col-4 text-end"><strong>Q<span id="detalleMontoOriginal">0.00</span></strong></div>
-                            </div>
-                            <div class="row mb-2" id="detalleFilaMora" style="display: none;">
-                                <div class="col-8">
-                                    Mora Acumulada:
-                                    <small class="d-block text-muted" id="detalleCalculoMora"></small>
+            <div class="tab-content">
+                <div id="cajeroOperaciones" class="tab-pane fade show active">
+                    <div class="row">
+                        <div class="col-md-4 mb-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0"><i class="fas fa-search"></i> Buscar Cliente</h5>
                                 </div>
-                                <div class="col-4 text-end"><strong class="text-danger">Q<span id="detalleMoraAmount">0.00</span></strong></div>
+                                <div class="card-body">
+                                    <div class="input-group mb-3">
+                                        <input type="number" id="idClienteBuscar" class="form-control" placeholder="ID del cliente">
+                                        <button class="btn btn-primary" onclick="buscarClienteCajero()"><i class="fas fa-search"></i></button>
+                                    </div>
+                                    <div id="datosClienteCajero" style="display: none;">
+                                        <div class="alert alert-info mb-0">
+                                            <h6 id="nombreClienteCajero" class="mb-2">-</h6>
+                                            <p class="mb-0">Saldo: <strong id="saldoClienteCajero" style="color: #667eea; font-size: 1.3rem;">Q 0.00</strong></p>
+                                        </div>
+                                    </div>
+                                    <div id="errorCajero" class="alert alert-danger mb-0" style="display: none;"></div>
+                                </div>
                             </div>
-                            <hr class="my-2">
-                            <div class="row">
-                                <div class="col-8"><h5>Total a Pagar:</h5></div>
-                                <div class="col-4 text-end"><h5 class="text-success">Q<span id="detalleTotalPago">0.00</span></h5></div>
+                        </div>
+
+                        <div class="col-md-4 mb-4">
+                            <div class="card" id="cardDeposito" style="display: none;">
+                                <div class="card-header" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);;">
+                                    <h5 class="mb-0"><i class="fas fa-arrow-down"></i> Depósito</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label class="form-label">Monto</label>
+                                        <input type="number" id="montoDeposito" class="form-control" step="0.01" placeholder="0.00">
+                                    </div>
+                                    <button class="btn w-100" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; border: none;" onclick="realizarDeposito()"><i class="fas fa-plus"></i> Depositar</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4 mb-4">
+                            <div class="card" id="cardRetiro" style="display: none;">
+                                <div class="card-header" style="background: linear-gradient(135deg, #dc3545 0%, #ff6b6b 100%);;">
+                                    <h5 class="mb-0"><i class="fas fa-arrow-up"></i> Retiro</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label class="form-label">Monto</label>
+                                        <input type="number" id="montoRetiro" class="form-control" step="0.01" placeholder="0.00">
+                                    </div>
+                                    <button class="btn w-100" style="background: linear-gradient(135deg, #dc3545 0%, #ff6b6b 100%); color: white; border: none;" onclick="realizarRetiro()"><i class="fas fa-minus"></i> Retirar</button>
+                                </div>
                             </div>
                         </div>
                     </div>
-
-                    <p class="text-muted">¿Desea proceder con el pago de esta cuota?</p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" id="btnConfirmarPago" 
-                            onclick="confirmarPago()">
-                        <i class="fas fa-check"></i> Confirmar Pago
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL PARA RESULTADO DE PAGO -->
-    <div class="modal fade" id="modalResultadoPago" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content" id="modalContenido">
-                <!-- Se llenará con JavaScript -->
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL PARA RETIRO DE CLIENTE -->
-    <div class="modal fade" id="modalRetiroCliente" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title">
-                        <i class="fas fa-money-bill"></i> Retirar Dinero
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <form onsubmit="confirmarRetiroCliente(event)" id="formRetiroCliente">
-                        <div class="mb-3">
-                            <label for="montoRetiroCliente" class="form-label">
-                                <i class="fas fa-coins"></i> Monto a Retirar (Q)
-                            </label>
-                            <input type="number" class="form-control form-control-lg" id="montoRetiroCliente" 
-                                   placeholder="Ej: 100" step="0.01" min="0.01" required>
+                    <div class="row">
+                        <div class="col-12">
+                            <div id="mensajeCajero" class="alert" style="display: none;"></div>
                         </div>
-                        <p class="text-muted">Ingrese el monto que desea retirar de su cuenta.</p>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-danger" onclick="confirmarRetiroCliente()">
-                        <i class="fas fa-check"></i> Confirmar Retiro
-                    </button>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- MODAL PARA DETALLES DEL USUARIO (ADMIN) -->
-    <div class="modal fade" id="modalDetallesUsuario" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title">
-                        <i class="fas fa-user-circle"></i> Detalles del Usuario
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <input type="hidden" id="idUsuarioDetalles">
-                    <input type="hidden" id="nombreUsuarioDetalles">
+    <!-- CLIENTE SECTION -->
+    <div id="clienteSection" class="section">
+        <div class="container-fluid mt-4 mb-4">
+            <h1 class="mb-4" style="color: white;"><i class="fas fa-user-circle"></i> Mi Cuenta</h1>
 
-                    <div class="mb-3">
-                        <label for="pinAdminVerificacionDetalles" class="form-label">
-                            <i class="fas fa-lock"></i> Tu PIN de Administrador
-                        </label>
-                        <input type="password" class="form-control" id="pinAdminVerificacionDetalles" 
-                               placeholder="Ingresa tu PIN para ver detalles" required>
-                        <small class="text-muted">Se requiere tu PIN para ver la información completa</small>
-                    </div>
-
-                    <div id="detallesUsuarioInfo" class="mt-3">
-                        <!-- Se llenará con JavaScript después de verificar PIN -->
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                    <button type="button" class="btn btn-primary" onclick="verDetallesUsuario()">
-                        <i class="fas fa-search"></i> Ver Detalles
+            <ul class="nav nav-tabs" role="tablist">
+                <li class="nav-item">
+                    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#clientePrincipal">
+                        <i class="fas fa-home"></i> Resumen
                     </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#clienteRetiros">
+                        <i class="fas fa-arrow-up"></i> Retiros
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#clienteServicios">
+                        <i class="fas fa-receipt"></i> Pagar Servicios
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content">
+                <!-- TAB: RESUMEN -->
+                <div id="clientePrincipal" class="tab-pane fade show active">
+                    <div class="row">
+                        <div class="col-md-6 mb-4">
+                            <div class="card">
+                                <div class="card-body text-center py-5">
+                                    <h6 class="text-muted mb-3"><i class="fas fa-wallet"></i> Mi Saldo Actual</h6>
+                                    <div id="saldoCliente" class="saldo-display">Q 0.00</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-4">
+                            <div class="card">
+                                <div class="card-body text-center py-5">
+                                    <h6 class="text-muted mb-3"><i class="fas fa-info-circle"></i> Información</h6>
+                                    <p class="mb-0"><strong>Estado:</strong> Activo</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB: RETIROS -->
+                <div id="clienteRetiros" class="tab-pane fade">
+                    <div class="row">
+                        <div class="col-md-6 mb-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0"><i class="fas fa-arrow-up"></i> Retirar Dinero</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label class="form-label">Monto a Retirar</label>
+                                        <input type="number" id="montoRetiroCliente" class="form-control" step="0.01" placeholder="0.00">
+                                    </div>
+                                    <button class="btn w-100" style="background: linear-gradient(135deg, #dc3545 0%, #ff6b6b 100%); color: white; border: none;" onclick="retiroClienteModal()"><i class="fas fa-money-bill"></i> Proceder al Retiro</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB: SERVICIOS -->
+                <div id="clienteServicios" class="tab-pane fade">
+                    <div class="row">
+                        <div class="col-md-6 mb-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0"><i class="fas fa-receipt"></i> Pagar Servicio</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label class="form-label">Concepto del Servicio</label>
+                                        <input type="text" id="conceptoServicio" class="form-control" placeholder="Ej: Agua, Luz, Internet">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Monto</label>
+                                        <input type="number" id="montoServicio" class="form-control" step="0.01" placeholder="0.00">
+                                    </div>
+                                    <button class="btn w-100" style="background: linear-gradient(135deg, #0dcaf0 0%, #00d4ff 100%); color: white; border: none;" onclick="pagarServicio()"><i class="fas fa-credit-card"></i> Pagar Servicio</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mt-3">
+                <div class="col-12">
+                    <div id="mensajeCliente" class="alert" style="display: none;"></div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- MODAL PARA RECUPERAR PIN -->
+    <!-- MODAL: RECUPERAR PIN -->
     <div class="modal fade" id="modalRecuperarPin" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog">
             <div class="modal-content">
-                <div class="modal-header bg-warning text-dark">
-                    <h5 class="modal-title">
-                        <i class="fas fa-redo"></i> Solicitar Recuperación de PIN
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <form onsubmit="solicitarRecuperacionPin(event)" id="formRecuperarPin">
-                        <div class="mb-3">
-                            <label for="idUsuarioRecuperar" class="form-label">
-                                <i class="fas fa-id-card"></i> Tu ID de Usuario
-                            </label>
-                            <input type="number" class="form-control form-control-lg" id="idUsuarioRecuperar" 
-                                   placeholder="Ingresa tu ID" min="1" required>
-                        </div>
-                        <p class="text-muted">El administrador será notificado de tu solicitud y te ayudará a recuperar tu PIN.</p>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-warning" onclick="solicitarRecuperacionPin()">
-                        <i class="fas fa-paper-plane"></i> Enviar Solicitud
-                    </button>
-                </div>
-                <div id="mensajeRecuperacion" class="alert alert-info m-3 d-none"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL PARA CAMBIAR PIN (ADMIN) -->
-    <div class="modal fade" id="modalCambiarPin" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title">
-                        <i class="fas fa-key"></i> Cambiar PIN del Usuario
-                    </h5>
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-key"></i> Recuperar PIN</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <input type="hidden" id="idUsuarioCambiarPin">
-
-                    <form onsubmit="cambiarPinUsuario(event)" id="formCambiarPin">
-                        <div class="mb-3">
-                            <label for="pinAdminVerificacion" class="form-label">
-                                <i class="fas fa-lock"></i> Tu PIN de Administrador
-                            </label>
-                            <input type="password" class="form-control" id="pinAdminVerificacion" 
-                                   placeholder="Ingresa tu PIN para confirmar" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="nuevoPin" class="form-label">
-                                <i class="fas fa-key"></i> Nuevo PIN
-                            </label>
-                            <input type="password" class="form-control" id="nuevoPin" 
-                                   placeholder="Ingresa el nuevo PIN (4 dígitos)" pattern="\d{4}" required>
-                        </div>
-                        <p class="text-muted">El usuario deberá usar este nuevo PIN para acceder.</p>
-                    </form>
+                    <p class="mb-3">Ingrese su ID de usuario para solicitar la recuperación de su PIN:</p>
+                    <input type="number" id="idRecuperacion" class="form-control" placeholder="ID de usuario">
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-danger" onclick="cambiarPinUsuario()">
-                        <i class="fas fa-save"></i> Cambiar PIN
-                    </button>
+                    <button type="button" class="btn btn-primary" onclick="procesarRecuperacionPin()"><i class="fas fa-send"></i> Enviar Solicitud</button>
                 </div>
-                <div id="mensajeCambioPin" class="alert m-3 d-none"></div>
             </div>
         </div>
     </div>
 
-    <!-- Barra de navegación oculta inicialmente -->
-    <script>
-        document.getElementById('navbar').style.display = 'none';
-    </script>
+    <!-- MODAL: CONFIRMAR RETIRO -->
+    <div class="modal fade" id="modalConfirmRetiro" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-arrow-up"></i> Confirmar Retiro</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>¿Confirma retirar <strong>Q<span id="montoRetiroConfirm">0.00</span></strong> de su cuenta?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-danger" onclick="confirmarRetiroCliente()"><i class="fas fa-check"></i> Confirmar</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="js/app.js"></script>
+    <script src="/js/app.js"></script>
 </body>
 </html>

@@ -8,17 +8,21 @@ namespace ProyectoProgra3.Models
     public class SolicitudRecuperacionPin
     {
         [Key]
+        [Column("id")]
         public int Id { get; set; }
 
+        [Required]
         [Column("id_usuario")]
-        public int IdUsuario { get; set; }
+        public int UsuarioId { get; set; }
 
-        [Column("nombre_usuario")]
-        public string NombreUsuario { get; set; }
+        [ForeignKey("UsuarioId")]
+        public Usuario Usuario { get; set; }
 
+        [Required]
         [Column("fecha_solicitud")]
         public DateTime FechaSolicitud { get; set; }
 
+        [Required]
         [Column("procesada")]
         public bool Procesada { get; set; }
     }
